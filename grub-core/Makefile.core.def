@@ -2140,3 +2140,8 @@ module = {
   name = progress;
   common = lib/progress.c;
 };
+
+module = {
+  name = crypto_devmapper;
+  common = disk/devmapper.c;
+};
