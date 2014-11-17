@@ -39,6 +39,8 @@
 
 #define MIN(a, b)	(a < b ? a : b)
 
+GRUB_MOD_LICENSE ("GPLv3+");
+
 struct grub_crypto
 {
   char *devname, *source_devname;
@@ -149,7 +151,7 @@ static const struct grub_arg_option options[] = {
 };
 
 static grub_err_t
-grub_cmd_devmap (grub_extcmd_t cmd, int argc, char **args)
+grub_cmd_devmap (grub_extcmd_context_t ctxt, int argc, char **args)
 {
   grub_disk_t disk;
   grub_crypto_t newdev;
@@ -159,7 +161,7 @@ grub_cmd_devmap (grub_extcmd_t cmd, int argc, char **args)
   char *passphrase = "";
   /* char cmdphrase[MAX_PASSPHRASE]; */
   const gcry_cipher_spec_t *ciph;
-  struct grub_arg_list *state = cmd->state;
+  struct grub_arg_list *state = ctxt->state;
 
   if (argc < 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "Device name required");
@@ -218,7 +220,7 @@ grub_cmd_devmap (grub_extcmd_t cmd, int argc, char **args)
       grub_free (newdev->source_devname);
       grub_free (newdev->devname);
       grub_free (newdev);
-      return grub_error (GRUB_ERR_CIPHER_NOT_FOUND, "Unknown cipher %s", hash);
+      return grub_error (GRUB_ERR_CIPHER_NOT_FOUND, "Unknown cipher %s", cipher);
     }
   newdev->cipher = grub_crypto_cipher_open (ciph);
   if (!newdev->cipher)
@@ -319,7 +321,7 @@ grub_crypto_open (const char *name, grub_disk_t disk)
   /* Populate requested disk */
   disk->total_sectors = grub_disk_get_size (private->srcdisk);
   disk->id = (int) dev;
-  disk->has_partitions = dev->has_partitions;
+  /*disk->has_partitions = dev->has_partitions;*/
   disk->data = private;
 
   return 0;
@@ -400,7 +402,7 @@ static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT (devmapper)
 {
-  cmd = grub_register_extcmd ("devmap", grub_cmd_devmap, GRUB_COMMAND_FLAG_BOTH,
+  cmd = grub_register_extcmd ("devmap", grub_cmd_devmap, 0,
 			      "devmap [OPTIONS...] [DEVICE] [SRC-DEV]",
 			      "Map one device onto another (w/ cryptography support).",
 			      options);
