@@ -2296,3 +2296,8 @@ module = {
   common = loader/i386/xen_file64.c;
   extra_dist = loader/i386/xen_fileXX.c;
 };
+
+module = {
+  name = crypto_devmapper;
+  common = disk/devmapper.c;
+};
