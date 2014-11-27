@@ -40,6 +40,7 @@ static const struct grub_arg_option options[] =
     /* TRANSLATORS: It's still restricted to cryptodisks only.  */
     {"all", 'a', 0, N_("Mount all."), 0, 0},
     {"boot", 'b', 0, N_("Mount all volumes with `boot' flag set."), 0, 0},
+    {"header", 'H', 0, N_("Read LUKS header from file 5"), 0, ARG_TYPE_STRING},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -806,7 +807,7 @@ cryptodisk_close (grub_cryptodisk_t dev)
 }
 
 static grub_err_t
-grub_cryptodisk_scan_device_real (const char *name, grub_disk_t source)
+grub_cryptodisk_scan_device_real (const char *name, grub_disk_t source, grub_file_t hdr)
 {
   grub_err_t err;
   grub_cryptodisk_t dev;
@@ -819,18 +820,21 @@ grub_cryptodisk_scan_device_real (const char *name, grub_disk_t source)
 
   FOR_CRYPTODISK_DEVS (cr)
   {
-    dev = cr->scan (source, search_uuid, check_boot);
+    dev = cr->scan (source, search_uuid, check_boot, hdr);
     if (grub_errno)
       return grub_errno;
     if (!dev)
       continue;
     
-    err = cr->recover_key (source, dev);
+    err = cr->recover_key (source, dev, hdr);
     if (err)
     {
       cryptodisk_close (dev);
       return err;
     }
+
+    if (hdr)
+      grub_file_close (hdr);
 
     grub_cryptodisk_insert (dev, name, source);
 
@@ -866,7 +870,7 @@ grub_cryptodisk_cheat_mount (const char *sourcedev, const char *cheat)
 
   FOR_CRYPTODISK_DEVS (cr)
   {
-    dev = cr->scan (source, search_uuid, check_boot);
+    dev = cr->scan (source, search_uuid, check_boot,0);
     if (grub_errno)
       return grub_errno;
     if (!dev)
@@ -903,7 +907,7 @@ grub_cryptodisk_scan_device (const char *name,
       return 0;
     }
 
-  err = grub_cryptodisk_scan_device_real (name, source);
+  err = grub_cryptodisk_scan_device_real (name, source, NULL);
 
   grub_disk_close (source);
   
@@ -916,9 +920,20 @@ static grub_err_t
 grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 {
   struct grub_arg_list *state = ctxt->state;
+  grub_file_t hdr;
 
   if (argc < 1 && !state[1].set && !state[2].set)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "device name required");
+
+  if (state[3].set)
+    {
+      hdr = grub_file_open (state[3].arg);
+      if (!hdr)
+        return grub_errno;
+      grub_printf ("Using detached header %s (%s)\n", state[3].arg, hdr->fs->name);
+    }
+  else
+    hdr = NULL;
 
   have_it = 0;
   if (state[0].set)
@@ -935,7 +950,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 
       check_boot = state[2].set;
       search_uuid = args[0];
-      grub_device_iterate (&grub_cryptodisk_scan_device, NULL);
+      grub_device_iterate (&grub_cryptodisk_scan_device, hdr);
       search_uuid = NULL;
 
       if (!have_it)
@@ -946,7 +961,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
     {
       search_uuid = NULL;
       check_boot = state[2].set;
-      grub_device_iterate (&grub_cryptodisk_scan_device, NULL);
+      grub_device_iterate (&grub_cryptodisk_scan_device, hdr);
       search_uuid = NULL;
       return GRUB_ERR_NONE;
     }
@@ -980,7 +995,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 	  return GRUB_ERR_NONE;
 	}
 
-      err = grub_cryptodisk_scan_device_real (args[0], disk);
+      err = grub_cryptodisk_scan_device_real (args[0], disk, hdr);
 
       grub_disk_close (disk);
 
@@ -1117,7 +1132,7 @@ GRUB_MOD_INIT (cryptodisk)
 {
   grub_disk_dev_register (&grub_cryptodisk_dev);
   cmd = grub_register_extcmd ("cryptomount", grub_cmd_cryptomount, 0,
-			      N_("SOURCE|-u UUID|-a|-b"),
+			      N_("SOURCE|-u UUID|-a|-b|-H file"),
 			      N_("Mount a crypto device."), options);
   grub_procfs_register ("luks_script", &luks_script);
 }
