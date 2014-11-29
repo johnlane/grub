@@ -40,7 +40,7 @@ static const struct grub_arg_option options[] =
     /* TRANSLATORS: It's still restricted to cryptodisks only.  */
     {"all", 'a', 0, N_("Mount all."), 0, 0},
     {"boot", 'b', 0, N_("Mount all volumes with `boot' flag set."), 0, 0},
-    {"header", 'H', 0, N_("Read LUKS header from file 5"), 0, ARG_TYPE_STRING},
+    {"header", 'H', 0, N_("Read LUKS header from file"), 0, ARG_TYPE_STRING},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -833,9 +833,6 @@ grub_cryptodisk_scan_device_real (const char *name, grub_disk_t source, grub_fil
       return err;
     }
 
-    if (hdr)
-      grub_file_close (hdr);
-
     grub_cryptodisk_insert (dev, name, source);
 
     have_it = 1;
@@ -930,7 +927,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
       hdr = grub_file_open (state[3].arg);
       if (!hdr)
         return grub_errno;
-      grub_printf ("Using detached header %s (%s)\n", state[3].arg, hdr->fs->name);
+      grub_printf ("\nUsing detached header %s\n", state[3].arg);
     }
   else
     hdr = NULL;

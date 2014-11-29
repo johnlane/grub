@@ -95,7 +95,6 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
   /* Read the LUKS header.  */
   if (hdr)
   {
-	  grub_printf ("configure_ciphers Using detached header\n");
     grub_file_seek (hdr, 0);
     if (grub_file_read (hdr, &header, sizeof (header)) != sizeof (header))
         err = GRUB_ERR_READ_ERROR;
@@ -103,22 +102,17 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
   else
     err = grub_disk_read (disk, 0, 0, sizeof (header), &header);
 
-  grub_printf ("header has been read\n");
-
   if (err)
     {
-      grub_printf ("Something went wrong. err=%d\n", err);
       if (err == GRUB_ERR_OUT_OF_RANGE)
 	grub_errno = GRUB_ERR_NONE;
       return NULL;
     }
 
   /* Look for LUKS magic sequence.  */
-  grub_printf ("Looking for LUKS magic\n");
   if (grub_memcmp (header.magic, LUKS_MAGIC, sizeof (header.magic))
       || grub_be_to_cpu16 (header.version) != 1)
     return NULL;
-  grub_printf ("Got LUKS magic\n");
 
   optr = uuid;
   for (iptr = header.uuid; iptr < &header.uuid[ARRAY_SIZE (header.uuid)];
@@ -322,7 +316,6 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
   newdev->modname = "luks";
   COMPILE_TIME_ASSERT (sizeof (newdev->uuid) >= sizeof (uuid));
 
-  grub_printf("Got to end of 'configure_ciphers'\n");
   return newdev;
 }
 
@@ -347,7 +340,6 @@ luks_recover_key (grub_disk_t source,
 
   if (hdr)
   {
-	  grub_printf ("recover_key Using detached header\n");
     grub_file_seek (hdr, 0);
     if (grub_file_read (hdr, &header, sizeof (header)) != sizeof (header))
         err = GRUB_ERR_READ_ERROR;
@@ -398,7 +390,6 @@ luks_recover_key (grub_disk_t source,
 	continue;
 
       grub_dprintf ("luks", "Trying keyslot %d\n", i);
-      grub_printf ("Trying keyslot %d\n", i);
 
       /* Calculate the PBKDF2 of the user supplied passphrase.  */
       gcry_err = grub_crypto_pbkdf2 (dev->hash, (grub_uint8_t *) passphrase,
@@ -430,16 +421,9 @@ luks_recover_key (grub_disk_t source,
       /* Read and decrypt the key material from the disk.  */
       if (hdr)
         {
-	  grub_printf ("recover_key Using detached header to read km %d bytes\n", (int)length);
-	  grub_printf ("Seeking to sector %d...", sector);
 	  grub_file_seek (hdr, sector * 512);
-	  grub_printf ("Seeked\n");
           if (grub_file_read (hdr, split_key, length) != (grub_ssize_t)length)
-	  {
-	  grub_printf ("Oops reading key\n");
-
             err = GRUB_ERR_READ_ERROR;
-	  }
         }
       else
         err = grub_disk_read (source, sector, 0, length, split_key);
@@ -448,12 +432,10 @@ luks_recover_key (grub_disk_t source,
 	  grub_free (split_key);
 	  return err;
 	}
-	  grub_printf ("Good so far...\n");
 
       gcry_err = grub_cryptodisk_decrypt (dev, split_key, length, 0);
       if (gcry_err)
 	{
-	  grub_printf ("Decrypt failed\n");
 	  grub_free (split_key);
 	  return grub_crypto_gcry_error (gcry_err);
 	}
@@ -468,7 +450,6 @@ luks_recover_key (grub_disk_t source,
 	}
 
       grub_dprintf ("luks", "candidate key recovered\n");
-	  grub_printf ("Got key, doing pbkdf2 now\n");
 
       /* Calculate the PBKDF2 of the candidate master key.  */
       gcry_err = grub_crypto_pbkdf2 (dev->hash, candidate_key,
@@ -485,14 +466,12 @@ luks_recover_key (grub_disk_t source,
 	  return grub_crypto_gcry_error (gcry_err);
 	}
 
-	  grub_printf ("Got pbkdf2, comparing digests now\n");
       /* Compare the calculated PBKDF2 to the digest stored
          in the header to see if it's correct.  */
       if (grub_memcmp (candidate_digest, header.mkDigest,
 		       sizeof (header.mkDigest)) != 0)
 	{
 	  grub_dprintf ("luks", "bad digest\n");
-	  grub_printf ("bad digest\n");
 	  continue;
 	}
 
