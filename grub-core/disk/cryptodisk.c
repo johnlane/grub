@@ -103,6 +103,14 @@ gf_mul_be (grub_uint8_t *o, const grub_uint8_t *a, const grub_uint8_t *b)
     }
 }
 
+void
+grub_crypto_uuid_dehyphenate(char *uuid)
+{
+  char *s, *d;
+  for (s=d=uuid;(*d=*s);d+=(*s++!='-'));
+}
+
+
 static gcry_err_code_t
 grub_crypto_pcbc_decrypt (grub_crypto_cipher_handle_t cipher,
 			 void *out, void *in, grub_size_t size,
@@ -488,6 +496,7 @@ grub_cryptodisk_open (const char *name, grub_disk_t disk)
 
   if (grub_memcmp (name, "cryptouuid/", sizeof ("cryptouuid/") - 1) == 0)
     {
+      grub_crypto_uuid_dehyphenate((char *)name + sizeof ("cryptouuid/"));
       for (dev = cryptodisk_list; dev != NULL; dev = dev->next)
 	if (grub_strcasecmp (name + sizeof ("cryptouuid/") - 1, dev->uuid) == 0)
 	  break;
@@ -925,6 +934,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
     {
       grub_cryptodisk_t dev;
 
+      grub_crypto_uuid_dehyphenate(args[0]);
       dev = grub_cryptodisk_get_by_uuid (args[0]);
       if (dev)
 	{
