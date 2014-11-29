@@ -160,6 +160,7 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
     {
       grub_error (GRUB_ERR_BAD_ARGUMENT, "invalid keysize %d",
 		  grub_be_to_cpu32 (header.keyBytes));
+      grub_crypto_cipher_close (cipher);
       return NULL;
     }
 
@@ -198,9 +199,10 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
 	}
       if (cipher->cipher->blocksize != GRUB_CRYPTODISK_GF_BYTES)
 	{
-	  grub_crypto_cipher_close (cipher);
 	  grub_error (GRUB_ERR_BAD_ARGUMENT, "Unsupported XTS block size: %d",
 		      cipher->cipher->blocksize);
+	  grub_crypto_cipher_close (cipher);
+	  grub_crypto_cipher_close (secondary_cipher);
 	  return NULL;
 	}
       if (secondary_cipher->cipher->blocksize != GRUB_CRYPTODISK_GF_BYTES)
@@ -208,6 +210,7 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
 	  grub_crypto_cipher_close (cipher);
 	  grub_error (GRUB_ERR_BAD_ARGUMENT, "Unsupported XTS block size: %d",
 		      secondary_cipher->cipher->blocksize);
+	  grub_crypto_cipher_close (secondary_cipher);
 	  return NULL;
 	}
     }
@@ -217,9 +220,9 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
       cipheriv = ciphermode + sizeof ("lrw-") - 1;
       if (cipher->cipher->blocksize != GRUB_CRYPTODISK_GF_BYTES)
 	{
-	  grub_crypto_cipher_close (cipher);
 	  grub_error (GRUB_ERR_BAD_ARGUMENT, "Unsupported LRW block size: %d",
 		      cipher->cipher->blocksize);
+	  grub_crypto_cipher_close (cipher);
 	  return NULL;
 	}
     }
@@ -242,6 +245,7 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
 	  || cipher->cipher->blocksize == 0)
 	grub_error (GRUB_ERR_BAD_ARGUMENT, "Unsupported benbi blocksize: %d",
 		    cipher->cipher->blocksize);
+	/* FIXME should we return an error here? */
       for (benbi_log = 0; 
 	   (cipher->cipher->blocksize << benbi_log) < GRUB_DISK_SECTOR_SIZE;
 	   benbi_log++);
@@ -260,6 +264,7 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
       if (!essiv_hash)
 	{
 	  grub_crypto_cipher_close (cipher);
+	  grub_crypto_cipher_close (secondary_cipher);
 	  grub_error (GRUB_ERR_FILE_NOT_FOUND,
 		      "Couldn't load %s hash", hash_str);
 	  return NULL;
@@ -268,12 +273,14 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
       if (!essiv_cipher)
 	{
 	  grub_crypto_cipher_close (cipher);
+	  grub_crypto_cipher_close (secondary_cipher);
 	  return NULL;
 	}
     }
   else
     {
       grub_crypto_cipher_close (cipher);
+      grub_crypto_cipher_close (secondary_cipher);
       grub_error (GRUB_ERR_BAD_ARGUMENT, "Unknown IV mode: %s",
 		  cipheriv);
       return NULL;
@@ -293,7 +300,12 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
 
   newdev = grub_zalloc (sizeof (struct grub_cryptodisk));
   if (!newdev)
-    return NULL;
+    {
+      grub_crypto_cipher_close (cipher);
+      grub_crypto_cipher_close (essiv_cipher);
+      grub_crypto_cipher_close (secondary_cipher);
+      return NULL;
+    }
   newdev->cipher = cipher;
   newdev->offset = grub_be_to_cpu32 (header.payloadOffset);
   newdev->source_disk = NULL;
@@ -501,6 +513,7 @@ luks_recover_key (grub_disk_t source,
       return GRUB_ERR_NONE;
     }
 
+  grub_free (split_key);
   return GRUB_ACCESS_DENIED;
 }
 
