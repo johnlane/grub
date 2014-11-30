@@ -52,6 +52,7 @@
 #include <grub/dl.h>
 #include <grub/err.h>
 #include <grub/disk.h>
+#include <grub/file.h>
 #include <grub/crypto.h>
 #include <grub/partition.h>
 #include <grub/i18n.h>
@@ -239,7 +240,8 @@ grub_util_get_geli_uuid (const char *dev)
 
 static grub_cryptodisk_t
 configure_ciphers (grub_disk_t disk, const char *check_uuid,
-		   int boot_only)
+		   int boot_only,
+		   grub_file_t hdr __attribute__ ((unused)) )
 {
   grub_cryptodisk_t newdev;
   struct grub_geli_phdr header;
@@ -394,7 +396,8 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
 }
 
 static grub_err_t
-recover_key (grub_disk_t source, grub_cryptodisk_t dev)
+recover_key (grub_disk_t source, grub_cryptodisk_t dev,
+	     grub_file_t hdr __attribute__ ((unused)) )
 {
   grub_size_t keysize;
   grub_uint8_t digest[GRUB_CRYPTO_MAX_MDLEN];
