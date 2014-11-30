@@ -40,6 +40,7 @@ static const struct grub_arg_option options[] =
     /* TRANSLATORS: It's still restricted to cryptodisks only.  */
     {"all", 'a', 0, N_("Mount all."), 0, 0},
     {"boot", 'b', 0, N_("Mount all volumes with `boot' flag set."), 0, 0},
+    {"header", 'H', 0, N_("Read LUKS header from file"), 0, ARG_TYPE_STRING},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -803,6 +804,7 @@ grub_util_cryptodisk_get_uuid (grub_disk_t disk)
 
 static int check_boot, have_it;
 static char *search_uuid;
+static grub_file_t hdr;
 
 static void
 cryptodisk_close (grub_cryptodisk_t dev)
@@ -827,13 +829,13 @@ grub_cryptodisk_scan_device_real (const char *name, grub_disk_t source)
 
   FOR_CRYPTODISK_DEVS (cr)
   {
-    dev = cr->scan (source, search_uuid, check_boot);
+    dev = cr->scan (source, search_uuid, check_boot, hdr);
     if (grub_errno)
       return grub_errno;
     if (!dev)
       continue;
     
-    err = cr->recover_key (source, dev);
+    err = cr->recover_key (source, dev, hdr);
     if (err)
     {
       cryptodisk_close (dev);
@@ -874,7 +876,7 @@ grub_cryptodisk_cheat_mount (const char *sourcedev, const char *cheat)
 
   FOR_CRYPTODISK_DEVS (cr)
   {
-    dev = cr->scan (source, search_uuid, check_boot);
+    dev = cr->scan (source, search_uuid, check_boot,0);
     if (grub_errno)
       return grub_errno;
     if (!dev)
@@ -927,6 +929,16 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 
   if (argc < 1 && !state[1].set && !state[2].set)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "device name required");
+
+  if (state[3].set)
+    {
+      hdr = grub_file_open (state[3].arg);
+      if (!hdr)
+        return grub_errno;
+      grub_printf ("\nUsing detached header %s\n", state[3].arg);
+    }
+  else
+    hdr = NULL;
 
   have_it = 0;
   if (state[0].set)
@@ -1126,7 +1138,7 @@ GRUB_MOD_INIT (cryptodisk)
 {
   grub_disk_dev_register (&grub_cryptodisk_dev);
   cmd = grub_register_extcmd ("cryptomount", grub_cmd_cryptomount, 0,
-			      N_("SOURCE|-u UUID|-a|-b"),
+			      N_("SOURCE|-u UUID|-a|-b|-H file"),
 			      N_("Mount a crypto device."), options);
   grub_procfs_register ("luks_script", &luks_script);
 }

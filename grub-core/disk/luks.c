@@ -23,6 +23,7 @@
 #include <grub/dl.h>
 #include <grub/err.h>
 #include <grub/disk.h>
+#include <grub/file.h>
 #include <grub/crypto.h>
 #include <grub/partition.h>
 #include <grub/i18n.h>
@@ -66,7 +67,7 @@ gcry_err_code_t AF_merge (const gcry_md_spec_t * hash, grub_uint8_t * src,
 
 static grub_cryptodisk_t
 configure_ciphers (grub_disk_t disk, const char *check_uuid,
-		   int check_boot)
+		   int check_boot, grub_file_t hdr)
 {
   grub_cryptodisk_t newdev;
   const char *iptr;
@@ -86,11 +87,21 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
   int benbi_log = 0;
   grub_err_t err;
 
+  err = GRUB_ERR_NONE;
+
   if (check_boot)
     return NULL;
 
   /* Read the LUKS header.  */
-  err = grub_disk_read (disk, 0, 0, sizeof (header), &header);
+  if (hdr)
+  {
+    grub_file_seek (hdr, 0);
+    if (grub_file_read (hdr, &header, sizeof (header)) != sizeof (header))
+        err = GRUB_ERR_READ_ERROR;
+  }
+  else
+    err = grub_disk_read (disk, 0, 0, sizeof (header), &header);
+
   if (err)
     {
       if (err == GRUB_ERR_OUT_OF_RANGE)
@@ -292,12 +303,14 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
   grub_memcpy (newdev->uuid, uuid, sizeof (newdev->uuid));
   newdev->modname = "luks";
   COMPILE_TIME_ASSERT (sizeof (newdev->uuid) >= sizeof (uuid));
+
   return newdev;
 }
 
 static grub_err_t
 luks_recover_key (grub_disk_t source,
-		  grub_cryptodisk_t dev)
+		  grub_cryptodisk_t dev,
+	          grub_file_t hdr)
 {
   struct grub_luks_phdr header;
   grub_size_t keysize;
@@ -309,8 +322,19 @@ luks_recover_key (grub_disk_t source,
   grub_err_t err;
   grub_size_t max_stripes = 1;
   char *tmp;
+  grub_uint32_t sector;
 
-  err = grub_disk_read (source, 0, 0, sizeof (header), &header);
+  err = GRUB_ERR_NONE;
+
+  if (hdr)
+  {
+    grub_file_seek (hdr, 0);
+    if (grub_file_read (hdr, &header, sizeof (header)) != sizeof (header))
+        err = GRUB_ERR_READ_ERROR;
+  }
+  else
+    err = grub_disk_read (source, 0, 0, sizeof (header), &header);
+
   if (err)
     return err;
 
@@ -379,13 +403,18 @@ luks_recover_key (grub_disk_t source,
 	  return grub_crypto_gcry_error (gcry_err);
 	}
 
+      sector = grub_be_to_cpu32 (header.keyblock[i].keyMaterialOffset);
       length = (keysize * grub_be_to_cpu32 (header.keyblock[i].stripes));
 
       /* Read and decrypt the key material from the disk.  */
-      err = grub_disk_read (source,
-			    grub_be_to_cpu32 (header.keyblock
-					      [i].keyMaterialOffset), 0,
-			    length, split_key);
+      if (hdr)
+        {
+	  grub_file_seek (hdr, sector * 512);
+          if (grub_file_read (hdr, split_key, length) != (grub_ssize_t)length)
+            err = GRUB_ERR_READ_ERROR;
+        }
+      else
+        err = grub_disk_read (source, sector, 0, length, split_key);
       if (err)
 	{
 	  grub_free (split_key);
