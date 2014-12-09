@@ -70,7 +70,7 @@ This example opens a LUKS volume using a detached LUKS header.
 #### 5. LUKS with detached header and key file
 
     insmod luks
-    cryptomount -H (hd0,1)/$2 -k (hd0,1)/keyfile hd1,1
+    cryptomount -H (hd0,1)/header -k (hd0,1)/keyfile hd1,1
 
 <div class="message" style="font-size:75%">
 
