@@ -9,7 +9,7 @@ relative_permalinks: true
 # Setup
 title:            Grub Crypt
 tagline:          'Grub with crypto enhancments'
-description:      'This is <a href="http://www.gnu.org/software/grub" target="_blank">Grub</a> with some extensions to its crypto modules to enhance the support for <a href="https://code.google.com/p/cryptsetup/wiki/DMCrypt" target="_blank">DMCrypt</a> and <a href="https://code.google.com/p/cryptsetup/wiki/DMCrypt" target="_blank">DMCrypt</a> volumes.'
+description:      'This is <a href="http://www.gnu.org/software/grub" target="_blank">Grub</a> with some extensions to its crypto modules to enhance the support for <a href="https://code.google.com/p/cryptsetup/wiki/DMCrypt" target="_blank">DMCrypt</a> and <a href="https://code.google.com/p/cryptsetup" target="_blank">LUKS</a> volumes.'
 url:              http://grub.johnlane.ie
 baseurl:          /
 
