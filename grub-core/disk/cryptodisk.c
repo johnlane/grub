@@ -41,6 +41,15 @@ static const struct grub_arg_option options[] =
     {"all", 'a', 0, N_("Mount all."), 0, 0},
     {"boot", 'b', 0, N_("Mount all volumes with `boot' flag set."), 0, 0},
     {"header", 'H', 0, N_("Read LUKS header from file"), 0, ARG_TYPE_STRING},
+    {"plain", 'p', 0, N_("Plain (no LUKS header)"), 0, ARG_TYPE_NONE},
+    {"cipher", 'c', 0, N_("Plain mode cipher"), 0, ARG_TYPE_STRING},
+    {"digest", 'd', 0, N_("Plain mode passphrase digest (hash)"), 0, ARG_TYPE_STRING},
+    {"offset", 'o', 0, N_("Plain mode data sector offset"), 0, ARG_TYPE_INT},
+    {"size", 's', 0, N_("Size of raw device (sectors, defaults to whole device)"), 0, ARG_TYPE_INT},
+    {"keyfile", 'k', 0, N_("Key file"), 0, ARG_TYPE_STRING},
+    {"key-size", 'K', 0, N_("Set key size (bits)"), 0, ARG_TYPE_INT},
+    {"keyfile-offset", 'O', 0, N_("Key file offset (bytes)"), 0, ARG_TYPE_INT},
+    {"keyfile-size", 'S', 0, N_("Key file data size (bytes)"), 0, ARG_TYPE_INT},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -805,6 +814,8 @@ grub_util_cryptodisk_get_uuid (grub_disk_t disk)
 static int check_boot, have_it;
 static char *search_uuid;
 static grub_file_t hdr;
+static grub_uint8_t *key, keyfile_buffer[GRUB_CRYPTODISK_MAX_KEYFILE_SIZE];
+static grub_size_t keyfile_size;
 
 static void
 cryptodisk_close (grub_cryptodisk_t dev)
@@ -835,7 +846,7 @@ grub_cryptodisk_scan_device_real (const char *name, grub_disk_t source)
     if (!dev)
       continue;
     
-    err = cr->recover_key (source, dev, hdr);
+    err = cr->recover_key (source, dev, hdr, key, keyfile_size);
     if (err)
     {
       cryptodisk_close (dev);
@@ -922,6 +933,48 @@ grub_cryptodisk_scan_device (const char *name,
   return have_it && search_uuid ? 1 : 0;
 }
 
+/* Hashes a passphrase into a key and stores it with cipher. */
+static gcry_err_code_t
+set_passphrase (grub_cryptodisk_t dev, grub_size_t keysize, const char *passphrase)
+{
+  grub_uint8_t derived_hash[GRUB_CRYPTODISK_MAX_KEYLEN * 2], *dh = derived_hash;
+  char *p;
+  unsigned int round, i;
+  unsigned int len, size;
+
+  /* Need no passphrase if there's no key */
+  if (keysize == 0)
+    return GPG_ERR_INV_KEYLEN;
+
+  /* Hack to support the "none" hash */
+  if (dev->hash)
+    len = dev->hash->mdlen;
+  else
+    len = grub_strlen (passphrase);
+
+  if (keysize > GRUB_CRYPTODISK_MAX_KEYLEN || len > GRUB_CRYPTODISK_MAX_KEYLEN)
+    return GPG_ERR_INV_KEYLEN;
+
+  p = grub_malloc (grub_strlen (passphrase) + 2 + keysize / len);
+  if (!p)
+    return grub_errno;
+
+  for (round = 0, size = keysize; size; round++, dh += len, size -= len)
+    {
+      for (i = 0; i < round; i++)
+	p[i] = 'A';
+
+      grub_strcpy (p + i, passphrase);
+
+      if (len > size)
+	len = size;
+
+      grub_crypto_hash (dev->hash, dh, p, grub_strlen (p));
+    }
+
+  return grub_cryptodisk_setkey (dev, derived_hash, keysize);
+}
+
 static grub_err_t
 grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 {
@@ -930,17 +983,44 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
   if (argc < 1 && !state[1].set && !state[2].set)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "device name required");
 
-  if (state[3].set)
+  if (state[3].set) /* LUKS detached header */
     {
+      if (state[0].set) /* Cannot use UUID lookup with detached header */
+        return GRUB_ERR_BAD_ARGUMENT;
+
       hdr = grub_file_open (state[3].arg);
       if (!hdr)
         return grub_errno;
-      grub_printf ("\nUsing detached header %s\n", state[3].arg);
     }
   else
     hdr = NULL;
 
   have_it = 0;
+
+  if (state[9].set) /* Key file */
+    {
+      grub_file_t keyfile;
+      int keyfile_offset;
+
+      key = keyfile_buffer;
+      keyfile_offset = state[11].set ? grub_strtoul (state[11].arg, 0, 0) : 0;
+      keyfile_size = state[12].set ? grub_strtoul (state[12].arg, 0, 0) : \
+		                             GRUB_CRYPTODISK_MAX_KEYFILE_SIZE;
+
+      keyfile = grub_file_open (state[9].arg);
+      if (!keyfile)
+        return grub_errno;
+
+      if (grub_file_seek (keyfile, keyfile_offset) == (grub_off_t)-1)
+        return grub_errno;
+
+      keyfile_size = grub_file_read (keyfile, key, keyfile_size);
+      if (keyfile_size == (grub_size_t)-1)
+         return grub_errno;
+    }
+  else
+    key = NULL;
+
   if (state[0].set)
     {
       grub_cryptodisk_t dev;
@@ -1001,7 +1081,64 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 	  return GRUB_ERR_NONE;
 	}
 
-      err = grub_cryptodisk_scan_device_real (args[0], disk);
+      if (state[4].set) /* Plain mode */
+        {
+          char *cipher;
+          char *mode;
+          char *digest;
+          int offset, size, key_size;
+
+          cipher = grub_strdup (state[5].set ? state[5].arg : GRUB_CRYPTODISK_PLAIN_CIPHER);
+          digest = grub_strdup (state[6].set ? state[6].arg : GRUB_CRYPTODISK_PLAIN_DIGEST);
+          offset = state[7].set ? grub_strtoul (state[7].arg, 0, 0) : 0;
+          size   = state[8].set ? grub_strtoul (state[8].arg, 0, 0) : 0;
+          key_size = ( state[10].set ? grub_strtoul (state[10].arg, 0, 0) \
+			             : GRUB_CRYPTODISK_PLAIN_KEYSIZE ) / 8;
+
+          /* no strtok, do it manually */
+          mode = grub_strchr(cipher,'-');
+          if (!mode)
+            return GRUB_ERR_BAD_ARGUMENT;
+          else
+            *mode++ = 0;
+
+          grub_printf ("\nCipher='%s' mode='%s'\n", cipher, mode);
+          dev = grub_cryptodisk_create (disk, NULL, cipher, mode, digest);
+
+          dev->offset = offset;
+	  if (size) dev->total_length = size;
+
+          if (key)
+	    {
+              err = grub_cryptodisk_setkey (dev, key, key_size);
+              if (err)
+                return err;
+	    }
+	  else
+	    {
+              char passphrase[GRUB_CRYPTODISK_MAX_PASSPHRASE] = "";
+
+              grub_printf_ (N_("Enter passphrase for %s: "), diskname);
+              if (!grub_password_get (passphrase, GRUB_CRYPTODISK_MAX_PASSPHRASE))
+                return grub_error (GRUB_ERR_BAD_ARGUMENT, "Passphrase not supplied");
+
+              err = set_passphrase (dev, key_size, passphrase);
+              if (err)
+                {
+                  grub_crypto_cipher_close (dev->cipher);
+                  return err;
+                }
+	    }
+
+          grub_cryptodisk_insert (dev, diskname, disk);
+
+          grub_free (cipher);
+          grub_free (digest);
+
+          err = GRUB_ERR_NONE;
+        }
+      else
+        err = grub_cryptodisk_scan_device_real (args[0], disk);
 
       grub_disk_close (disk);
 
@@ -1126,6 +1263,197 @@ luks_script_get (grub_size_t *sz)
   return ret;
 }
 
+grub_cryptodisk_t
+grub_cryptodisk_create (grub_disk_t disk, char *uuid,
+		   char *ciphername, char *ciphermode, char *hashspec)
+{
+  grub_cryptodisk_t newdev;
+  char *cipheriv = NULL;
+  grub_crypto_cipher_handle_t cipher = NULL, secondary_cipher = NULL;
+  grub_crypto_cipher_handle_t essiv_cipher = NULL;
+  const gcry_md_spec_t *hash = NULL, *essiv_hash = NULL;
+  const struct gcry_cipher_spec *ciph;
+  grub_cryptodisk_mode_t mode;
+  grub_cryptodisk_mode_iv_t mode_iv = GRUB_CRYPTODISK_MODE_IV_PLAIN64;
+  int benbi_log = 0;
+
+  if (!uuid)
+    uuid = (char*)"00000000000000000000000000000000";
+
+  ciph = grub_crypto_lookup_cipher_by_name (ciphername);
+  if (!ciph)
+    {
+      grub_error (GRUB_ERR_FILE_NOT_FOUND, "Cipher %s isn't available",
+		  ciphername);
+      return NULL;
+    }
+
+  /* Configure the cipher used for the bulk data.  */
+  cipher = grub_crypto_cipher_open (ciph);
+  if (!cipher)
+    return NULL;
+
+  /* Configure the cipher mode.  */
+  if (grub_strcmp (ciphermode, "ecb") == 0)
+    {
+      mode = GRUB_CRYPTODISK_MODE_ECB;
+      mode_iv = GRUB_CRYPTODISK_MODE_IV_PLAIN;
+      cipheriv = NULL;
+    }
+  else if (grub_strcmp (ciphermode, "plain") == 0)
+    {
+      mode = GRUB_CRYPTODISK_MODE_CBC;
+      mode_iv = GRUB_CRYPTODISK_MODE_IV_PLAIN;
+      cipheriv = NULL;
+    }
+  else if (grub_memcmp (ciphermode, "cbc-", sizeof ("cbc-") - 1) == 0)
+    {
+      mode = GRUB_CRYPTODISK_MODE_CBC;
+      cipheriv = ciphermode + sizeof ("cbc-") - 1;
+    }
+  else if (grub_memcmp (ciphermode, "pcbc-", sizeof ("pcbc-") - 1) == 0)
+    {
+      mode = GRUB_CRYPTODISK_MODE_PCBC;
+      cipheriv = ciphermode + sizeof ("pcbc-") - 1;
+    }
+  else if (grub_memcmp (ciphermode, "xts-", sizeof ("xts-") - 1) == 0)
+    {
+      mode = GRUB_CRYPTODISK_MODE_XTS;
+      cipheriv = ciphermode + sizeof ("xts-") - 1;
+      secondary_cipher = grub_crypto_cipher_open (ciph);
+      if (!secondary_cipher)
+	{
+	  grub_crypto_cipher_close (cipher);
+	  return NULL;
+	}
+      if (cipher->cipher->blocksize != GRUB_CRYPTODISK_GF_BYTES)
+	{
+	  grub_error (GRUB_ERR_BAD_ARGUMENT, "Unsupported XTS block size: %d",
+		      cipher->cipher->blocksize);
+	  grub_crypto_cipher_close (cipher);
+	  grub_crypto_cipher_close (secondary_cipher);
+	  return NULL;
+	}
+      if (secondary_cipher->cipher->blocksize != GRUB_CRYPTODISK_GF_BYTES)
+	{
+	  grub_crypto_cipher_close (cipher);
+	  grub_error (GRUB_ERR_BAD_ARGUMENT, "Unsupported XTS block size: %d",
+		      secondary_cipher->cipher->blocksize);
+	  grub_crypto_cipher_close (secondary_cipher);
+	  return NULL;
+	}
+    }
+  else if (grub_memcmp (ciphermode, "lrw-", sizeof ("lrw-") - 1) == 0)
+    {
+      mode = GRUB_CRYPTODISK_MODE_LRW;
+      cipheriv = ciphermode + sizeof ("lrw-") - 1;
+      if (cipher->cipher->blocksize != GRUB_CRYPTODISK_GF_BYTES)
+	{
+	  grub_error (GRUB_ERR_BAD_ARGUMENT, "Unsupported LRW block size: %d",
+		      cipher->cipher->blocksize);
+	  grub_crypto_cipher_close (cipher);
+	  return NULL;
+	}
+    }
+  else
+    {
+      grub_crypto_cipher_close (cipher);
+      grub_error (GRUB_ERR_BAD_ARGUMENT, "Unknown cipher mode: %s",
+		  ciphermode);
+      return NULL;
+    }
+
+  if (cipheriv == NULL);
+  else if (grub_memcmp (cipheriv, "plain", sizeof ("plain") - 1) == 0)
+      mode_iv = GRUB_CRYPTODISK_MODE_IV_PLAIN;
+  else if (grub_memcmp (cipheriv, "plain64", sizeof ("plain64") - 1) == 0)
+      mode_iv = GRUB_CRYPTODISK_MODE_IV_PLAIN64;
+  else if (grub_memcmp (cipheriv, "benbi", sizeof ("benbi") - 1) == 0)
+    {
+      if (cipher->cipher->blocksize & (cipher->cipher->blocksize - 1)
+	  || cipher->cipher->blocksize == 0)
+	grub_error (GRUB_ERR_BAD_ARGUMENT, "Unsupported benbi blocksize: %d",
+		    cipher->cipher->blocksize);
+	/* FIXME should we return an error here? */
+      for (benbi_log = 0;
+	   (cipher->cipher->blocksize << benbi_log) < GRUB_DISK_SECTOR_SIZE;
+	   benbi_log++);
+      mode_iv = GRUB_CRYPTODISK_MODE_IV_BENBI;
+    }
+  else if (grub_memcmp (cipheriv, "null", sizeof ("null") - 1) == 0)
+      mode_iv = GRUB_CRYPTODISK_MODE_IV_NULL;
+  else if (grub_memcmp (cipheriv, "essiv:", sizeof ("essiv:") - 1) == 0)
+    {
+      char *hash_str = cipheriv + 6;
+
+      mode_iv = GRUB_CRYPTODISK_MODE_IV_ESSIV;
+
+      /* Configure the hash and cipher used for ESSIV.  */
+      essiv_hash = grub_crypto_lookup_md_by_name (hash_str);
+      if (!essiv_hash)
+	{
+	  grub_crypto_cipher_close (cipher);
+	  grub_crypto_cipher_close (secondary_cipher);
+	  grub_error (GRUB_ERR_FILE_NOT_FOUND,
+		      "Couldn't load %s hash", hash_str);
+	  return NULL;
+	}
+      essiv_cipher = grub_crypto_cipher_open (ciph);
+      if (!essiv_cipher)
+	{
+	  grub_crypto_cipher_close (cipher);
+	  grub_crypto_cipher_close (secondary_cipher);
+	  return NULL;
+	}
+    }
+  else
+    {
+      grub_crypto_cipher_close (cipher);
+      grub_crypto_cipher_close (secondary_cipher);
+      grub_error (GRUB_ERR_BAD_ARGUMENT, "Unknown IV mode: %s",
+		  cipheriv);
+      return NULL;
+    }
+
+  /* Configure the passphrase hash (LUKS also uses AF splitter and HMAC).  */
+  hash = grub_crypto_lookup_md_by_name (hashspec);
+  if (!hash)
+    {
+      grub_crypto_cipher_close (cipher);
+      grub_crypto_cipher_close (essiv_cipher);
+      grub_crypto_cipher_close (secondary_cipher);
+      grub_error (GRUB_ERR_FILE_NOT_FOUND, "Couldn't load %s hash",
+		  hashspec);
+      return NULL;
+    }
+
+  newdev = grub_zalloc (sizeof (struct grub_cryptodisk));
+  if (!newdev)
+    {
+      grub_crypto_cipher_close (cipher);
+      grub_crypto_cipher_close (essiv_cipher);
+      grub_crypto_cipher_close (secondary_cipher);
+      return NULL;
+    }
+  newdev->cipher = cipher;
+  newdev->offset = 0;
+  newdev->source_disk = NULL;
+  newdev->benbi_log = benbi_log;
+  newdev->mode = mode;
+  newdev->mode_iv = mode_iv;
+  newdev->secondary_cipher = secondary_cipher;
+  newdev->essiv_cipher = essiv_cipher;
+  newdev->essiv_hash = essiv_hash;
+  newdev->hash = hash;
+  newdev->log_sector_size = 9;
+  newdev->total_length = grub_disk_get_size (disk) - newdev->offset;
+  grub_memcpy (newdev->uuid, uuid, sizeof (newdev->uuid));
+  COMPILE_TIME_ASSERT (sizeof (newdev->uuid) >= sizeof (uuid));
+
+  return newdev;
+}
+
+
 struct grub_procfs_entry luks_script =
 {
   .name = "luks_script",
@@ -1138,7 +1466,7 @@ GRUB_MOD_INIT (cryptodisk)
 {
   grub_disk_dev_register (&grub_cryptodisk_dev);
   cmd = grub_register_extcmd ("cryptomount", grub_cmd_cryptomount, 0,
-			      N_("SOURCE|-u UUID|-a|-b|-H file"),
+			      N_("SOURCE|-u UUID|-a|-b|-H file|-p -c cipher -d digest"),
 			      N_("Mount a crypto device."), options);
   grub_procfs_register ("luks_script", &luks_script);
 }
