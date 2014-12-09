@@ -246,3 +246,5 @@ build-aux/test-driver
 /garbage-gen
 /garbage-gen.exe
 /grub-fs-tester
+*.swp
+*.un~
