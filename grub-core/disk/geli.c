@@ -397,7 +397,9 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
 
 static grub_err_t
 recover_key (grub_disk_t source, grub_cryptodisk_t dev,
-	     grub_file_t hdr __attribute__ ((unused)) )
+	     grub_file_t hdr __attribute__ ((unused)),
+	     grub_uint8_t *key __attribute__ ((unused)),
+	     grub_size_t keyfile_size __attribute__ ((unused)) )
 {
   grub_size_t keysize;
   grub_uint8_t digest[GRUB_CRYPTO_MAX_MDLEN];
