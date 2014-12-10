@@ -4,31 +4,41 @@ volumes.
 
 It also allows a crypto volume UUID to be specified with or without embedded hyphens.
 
-It makes it possible to boot from [LUKS][1] and [DMCrypt][2] volumes. The LUKS header may
-be detached and stored on a different device, such as a removable USB key. Key files may be
+This makes it possible to boot from [LUKS][1] and [DMCrypt][2] volumes. The LUKS header may
+be detached and stored on a separate device such as a removable USB key. Key files may be
 stored in a similar way and used instead of interactive passphrase entry.
 
-The extension provides the `cryptomount` command with several new command-line options:
+The extension provides the `cryptomount` command with several new command-line options. Use `cryptomount --help` to display them. The options parrallel those offered by [cryptsetup][3].
 
-* `-p` use plain [DMCrypt][2] mode instead of [LUKS][1] mode.
-* `-H` use detached header
-* `-k` use key file
+![help screenshot](/assets/grub-crypto.png)
 
-`cryptsetup -h` displays all of the available options.
+This work has [the same license as Grub](http://git.savannah.gnu.org/cgit/grub.git/tree/COPYING) (GPL v3).
 
-Source repository on [GitHub](https://github.com/johnlane/grub-crypt). Licensed as per Grub.
+### Installation
 
-![My helpful screenshot](/assets/grub-crypto.png)
+Get from [GitHub]({{ site.github.repo }}).
+
+    $ git clone {{ site.github.repo }}
+
+Alternatively, check out [upstream](https://savannah.gnu.org/git/?group=grub) and apply these patches:
+
+* [0001-Cryptomount-support-for-hyphens-in-UUID.patch](/assets/0001-Cryptomount-support-for-hyphens-in-UUID.patch)
+* [0002-Cryptomount-support-LUKS-detached-header.patch](/assets/0002-Cryptomount-support-LUKS-detached-header.patch)
+* [0003-Cryptomount-support-plain-dm-crypt-and-key-files.patch](/assets/0003-Cryptomount-support-plain-dm-crypt-and-key-files.patch)
+
+Follow the build and install instructions in the upstream Grub [INSTALL](http://git.savannah.gnu.org/cgit/grub.git/tree/INSTALL) file.
+
+<small>Patches compatible with upstream HEAD (17328d) at time of writing, 2014/12/09</small>
 
 ### UUID availability
 
-The `cryptomount` command can, in certain limited situations, find an encrypted device by its
-UUID. The UUID value can be specified with or without being delimited by hyphens. The UUID
-is compared against the UUID in the LUKS header and its use is therefore possible for LUKS
-volumes with attached headers only.
+The `cryptomount` command can identify an encrypted LUKS device by its UUID. The UUID value
+can be specified with or without being delimited by hyphens. Because the given UUID is
+compared against the UUID in the LUKS header, such lookups only work with LUKS volumes with
+attached headers.
 
-Specifically, the UUID cannot be used with plain DMCrypt volumes or with a LUKS detached
-header.
+Specifically, the UUID cannot be used with plain DMCrypt volumes or when a LUKS detached
+header is used.
 
 ### Examples
 
@@ -51,7 +61,7 @@ file and the LUKS cipher and payload offset details are supplied as parameters.
 
 #### 3. LUKS
 
-This example opens a LUKS voume. This is possible without the extension.
+This example opens a LUKS voume and is the only method supported by upstream Grub.
 
     insmod luks
     cryptomount hd1,1
@@ -73,13 +83,8 @@ This example opens a LUKS volume using a detached LUKS header.
     cryptomount -H (hd0,1)/header -k (hd0,1)/keyfile hd1,1
 
 <div class="message" style="font-size:75%">
-
 GRUB is free software; you can redistribute it and/or modify it under the terms of the <a href="http://www.gnu.org/licenses/gpl.html">GNU General Public License</a> as published by the Free Software Foundation; either version 3 of the License, or (at your option) any later version.
-
 </div>
-
-
-
 
 [1]:https://code.google.com/p/cryptsetup
 [2]:https://code.google.com/p/cryptsetup/wiki/DMCrypt

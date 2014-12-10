@@ -1,0 +1,47 @@
+From be5328baa13459fddcef2e55fde398eb6932ebf5 Mon Sep 17 00:00:00 2001
+From: John Lane <john@lane.uk.net>
+Date: Sat, 29 Nov 2014 18:59:43 +0000
+Subject: [PATCH 1/1] Cryptomount support for hyphens in UUID
+
+---
+ grub-core/disk/cryptodisk.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/grub-core/disk/cryptodisk.c b/grub-core/disk/cryptodisk.c
+index f0e3a90..cdb9950 100644
+--- a/grub-core/disk/cryptodisk.c
++++ b/grub-core/disk/cryptodisk.c
+@@ -103,6 +103,14 @@ gf_mul_be (grub_uint8_t *o, const grub_uint8_t *a, const grub_uint8_t *b)
+     }
+ }
+ 
++void
++grub_crypto_uuid_dehyphenate(char *uuid)
++{
++  char *s, *d;
++  for (s=d=uuid;(*d=*s);d+=(*s++!='-'));
++}
++
++
+ static gcry_err_code_t
+ grub_crypto_pcbc_decrypt (grub_crypto_cipher_handle_t cipher,
+ 			 void *out, void *in, grub_size_t size,
+@@ -488,6 +496,7 @@ grub_cryptodisk_open (const char *name, grub_disk_t disk)
+ 
+   if (grub_memcmp (name, "cryptouuid/", sizeof ("cryptouuid/") - 1) == 0)
+     {
++      grub_crypto_uuid_dehyphenate((char *)name + sizeof ("cryptouuid/"));
+       for (dev = cryptodisk_list; dev != NULL; dev = dev->next)
+ 	if (grub_strcasecmp (name + sizeof ("cryptouuid/") - 1, dev->uuid) == 0)
+ 	  break;
+@@ -925,6 +934,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
+     {
+       grub_cryptodisk_t dev;
+ 
++      grub_crypto_uuid_dehyphenate(args[0]);
+       dev = grub_cryptodisk_get_by_uuid (args[0]);
+       if (dev)
+ 	{
+-- 
+2.1.2
+
