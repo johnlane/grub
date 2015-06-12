@@ -20,6 +20,8 @@ Get from [GitHub]({{ site.github.repo }}).
 
     $ git clone {{ site.github.repo }}
 
+<small>Merged upstream HEAD (c945ca75) on 2015/06/12</small>
+
 Alternatively, check out [upstream](https://savannah.gnu.org/git/?group=grub) and apply these patches:
 
 * [0001-Cryptomount-support-for-hyphens-in-UUID.patch](/assets/0001-Cryptomount-support-for-hyphens-in-UUID.patch)
