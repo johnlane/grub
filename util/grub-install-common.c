@@ -238,7 +238,7 @@ grub_install_push_module (const char *val)
       if (modules.n_alloc < 16)
 	modules.n_alloc = 16;
       modules.entries = xrealloc (modules.entries,
-				  modules.n_alloc * sizeof (modules.entries));
+				  modules.n_alloc * sizeof (*modules.entries));
     }
   modules.entries[modules.n_entries++] = xstrdup (val);
   modules.entries[modules.n_entries] = NULL;
@@ -490,10 +490,11 @@ grub_install_make_image_wrap_file (const char *dir, const char *prefix,
 		  dir, prefix,
 		  outname, mkimage_target,
 		  compnames[compression], note ? "--note" : "", s);
+  free (s);
 
   tgt = grub_install_get_image_target (mkimage_target);
   if (!tgt)
-    grub_util_error (_("unknown target format %s\n"), mkimage_target);
+    grub_util_error (_("unknown target format %s"), mkimage_target);
 
   grub_install_generate_image (dir, prefix, fp, outname,
 			       modules.entries, memdisk_path,
@@ -901,7 +902,7 @@ grub_install_get_target (const char *src)
 {
   char *fn;
   grub_util_fd_t f;
-  char buf[2048];
+  char buf[8192];
   ssize_t r;
   char *c, *pl, *p;
   size_t i;

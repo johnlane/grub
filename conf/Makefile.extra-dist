@@ -5,6 +5,7 @@ EXTRA_DIST += gentpl.py
 EXTRA_DIST += Makefile.util.def
 EXTRA_DIST += Makefile.utilgcry.def
 
+EXTRA_DIST += asm-tests
 EXTRA_DIST += unicode
 
 EXTRA_DIST += util/import_gcry.py
@@ -121,3 +122,15 @@ EXTRA_DIST += tests/file_filter/file.xz.sig
 EXTRA_DIST += tests/file_filter/keys
 EXTRA_DIST += tests/file_filter/keys.pub
 EXTRA_DIST += tests/file_filter/test.cfg
+EXTRA_DIST += tests/syslinux/ubuntu10.04/isolinux/prompt.cfg
+EXTRA_DIST += tests/syslinux/ubuntu10.04/isolinux/gfxboot.cfg
+EXTRA_DIST += tests/syslinux/ubuntu10.04/isolinux/adtxt.cfg
+EXTRA_DIST += tests/syslinux/ubuntu10.04/isolinux/isolinux.cfg
+EXTRA_DIST += tests/syslinux/ubuntu10.04/isolinux/exithelp.cfg
+EXTRA_DIST += tests/syslinux/ubuntu10.04/isolinux/txt.cfg
+EXTRA_DIST += tests/syslinux/ubuntu10.04/isolinux/menu.cfg
+EXTRA_DIST += tests/syslinux/ubuntu10.04/isolinux/stdmenu.cfg
+EXTRA_DIST += tests/syslinux/ubuntu10.04/isolinux/dtmenu.cfg
+EXTRA_DIST += tests/syslinux/ubuntu10.04/isolinux/po4a.cfg
+EXTRA_DIST += tests/syslinux/ubuntu10.04/isolinux/rqtxt.cfg
+EXTRA_DIST += tests/syslinux/ubuntu10.04_grub.cfg.in

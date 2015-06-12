@@ -17,6 +17,7 @@ New in 2.02:
     files.
   * ZFS features support.
   * ZFS LZ4 support.
+  * XFS V5 format support.
 
 * New/improved terminal and video support:
   * Monochrome text (matching `hercules' in GRUB Legacy).
@@ -85,6 +86,8 @@ New in 2.02:
   * Support for USB debug dongles.
   * Support for *-emu on all platforms (previously only i386/x86_64 worked).
   * Support *-emu on Windows.
+  * New platform `none' which builds only user level utilities. This is now
+    default if target CPU is not supported.
 
 * Security:
   * Add optional facility to enforce that all files read by the core image

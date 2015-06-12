@@ -308,7 +308,7 @@ grub_load_public_key (grub_file_t f)
       if (!sk)
 	goto fail;
 
-      grub_memset (fingerprint_context, 0, sizeof (fingerprint_context));
+      grub_memset (fingerprint_context, 0, GRUB_MD_SHA1->contextsize);
       GRUB_MD_SHA1->init (fingerprint_context);
       GRUB_MD_SHA1->write (fingerprint_context, "\x99", 1);
       len_be = grub_cpu_to_be16 (len);
@@ -454,7 +454,7 @@ grub_verify_signature_real (char *buf, grub_size_t size,
   grub_err_t err;
   grub_size_t i;
   gcry_mpi_t mpis[10];
-  grub_uint8_t type;
+  grub_uint8_t type = 0;
 
   err = read_packet_header (sig, &type, &len);
   if (err)

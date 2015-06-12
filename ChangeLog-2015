@@ -1,3 +1,188 @@
+2015-01-23  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* tests/file_filter/file: Really add missing file.
+
+2015-01-23  Andrei Borzenkov  <arvidjaar@gmail.com>
+
+	* grub-core/disk/xen/xendisk.c: Accept hdX as disk names on Xen to
+	allow legacy menu.lst processing.
+
+2015-01-22  Felix Janda <felix.janda@posteo.de>
+
+	Remove direct _llseek code and require long filesystem libc.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	Remove potential division by 0 in gfxmenu.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/normal/menu_text.c (grub_menu_init_page): Avoid
+	returning 0 geometry to avoid divisions by 0.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/osdep/unix/cputime.c (grub_util_get_cpu_time_ms): Cache
+	sc_clk_tck and check it for sanity.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/kern/efi/mm.c (grub_efi_get_memory_map): Never return a
+	descriptor_size==0 to avoid potential divisions by zero.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/osdep/haiku/getroot.c (grub_util_find_partition_start_os):
+	Avoid division by zero.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/kern/generic/rtc_get_time_ms.c (grub_rtc_get_time_ms): Avoid
+	division by zero.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/loader/i386/xnu.c (guessfsb): Avoid division by 0.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/kern/i386/tsc.c (calibrate_tsc): Ensure that
+	no division by 0 occurs.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* include/grub/misc.h (grub_div_roundup): Remove as it's unused.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/term/gfxterm.c: Avoid division by zero.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	Avoid division by zero in serial.
+
+	* grub-core/term/serial.c (grub_cmd_serial): Ensure speed is not 0.
+	* grub-core/term/ns8250.c (serial_get_divisor): Exit if speed is 0.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/video/readers/jpeg.c: Avoid sivision by zero.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/disk/diskfilter.c: Validate volumes to avoid division
+	by zero.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* include/grub/term.h: Avoid returining 0-sized terminal
+	as it may lead to division by zero.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/fs/zfs.c: Avoid divisions by zero.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/fs/btrfs.c: Avoid divisions by zero.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/lib/pbkdf2.c (grub_crypto_pbkdf2): Check that hash len is not 0.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/osdep/linux/blocklist.c (grub_install_get_blocklist): Check
+	blocksize validity.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/disk/i386/pc/biosdisk.c: Check disk size sanity.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/disk/ieee1275/nand.c (grub_nand_open): Check block size
+	validity.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/disk/dmraid_nvidia.c (grub_dmraid_nv_detect): Do not
+	divide by zero.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/fs/hfs.c (grub_hfs_mount): Additional filesystem
+	sanity checks.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/fs/minix.c: Additional filesystem
+	sanity checks.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/fs/ext2.c (grub_ext2_mount): Additional
+	checks for superblock validity.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/fs/ufs.c (grub_ufs_mount): Check
+	that sblock.ino_per_group is not 0.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	Reject NILFS2 superblocks with over 1GiB blocks.
+
+	* grub-core/fs/nilfs2.c (grub_nilfs2_valid_sb): Check that
+	block size is <= 1GiB.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/disk/ata.c (grub_ata_setaddress): Check that geometry
+	is sane when using CHS addressing.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/disk/AFSplitter.c (AF_merge): Check that mdlen is not 0.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/commands/i386/pc/play.c (grub_cmd_play): Avoid
+	division by zero.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/bus/usb/usbtrans.c (grub_usb_bulk_maxpacket): Avoid
+	potentially returning 0.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/fs/minix.c (grub_minix_read_file): Avoid reading past
+	the end of file.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/fs/fshelp.c (grub_fshelp_read_file): Don't attempt to read
+	past the end of file.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	* grub-core/script/lexer.c (grub_script_lexer_yywrap): Update len
+	synchronously with line.
+
+2015-01-20  Vladimir Serbinenko  <phcoder@gmail.com>
+
+	Replace explicit sizeof divisions by ARRAY_SIZE.
+
+2015-01-19  Kris Moore <kris@pcbsd.org>
+
+	* grub-core/disk/geli.c: Support GELI v6 and v7.
+
+2014-12-09  Andrei Borzenkov  <arvidjaar@gmail.com>
+
+	* grub-core/term/serial.c (grub_cmd_serial): Fix --rtscts
+	option processing.
+
 2014-12-07  David Kozub  <zub.272@gmail.com>
 
 	* grub-core/kern/arm/misc.S: fix unaligned 64bit local variable

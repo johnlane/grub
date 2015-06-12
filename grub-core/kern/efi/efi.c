@@ -27,6 +27,7 @@
 #include <grub/term.h>
 #include <grub/kernel.h>
 #include <grub/mm.h>
+#include <grub/loader.h>
 
 /* The handle of GRUB itself. Filled in by the startup code.  */
 grub_efi_handle_t grub_efi_image_handle;
@@ -156,7 +157,7 @@ grub_efi_get_loaded_image (grub_efi_handle_t image_handle)
 void
 grub_exit (void)
 {
-  grub_efi_fini ();
+  grub_machine_fini (GRUB_LOADER_FLAG_NORETURN);
   efi_call_4 (grub_efi_system_table->boot_services->exit,
               grub_efi_image_handle, GRUB_EFI_SUCCESS, 0, 0);
   for (;;) ;
@@ -392,6 +393,47 @@ grub_efi_get_device_path (grub_efi_handle_t handle)
 {
   return grub_efi_open_protocol (handle, &device_path_guid,
 				 GRUB_EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+}
+
+/* Return the device path node right before the end node.  */
+grub_efi_device_path_t *
+grub_efi_find_last_device_path (const grub_efi_device_path_t *dp)
+{
+  grub_efi_device_path_t *next, *p;
+
+  if (GRUB_EFI_END_ENTIRE_DEVICE_PATH (dp))
+    return 0;
+
+  for (p = (grub_efi_device_path_t *) dp, next = GRUB_EFI_NEXT_DEVICE_PATH (p);
+       ! GRUB_EFI_END_ENTIRE_DEVICE_PATH (next);
+       p = next, next = GRUB_EFI_NEXT_DEVICE_PATH (next))
+    ;
+
+  return p;
+}
+
+/* Duplicate a device path.  */
+grub_efi_device_path_t *
+grub_efi_duplicate_device_path (const grub_efi_device_path_t *dp)
+{
+  grub_efi_device_path_t *p;
+  grub_size_t total_size = 0;
+
+  for (p = (grub_efi_device_path_t *) dp;
+       ;
+       p = GRUB_EFI_NEXT_DEVICE_PATH (p))
+    {
+      total_size += GRUB_EFI_DEVICE_PATH_LENGTH (p);
+      if (GRUB_EFI_END_ENTIRE_DEVICE_PATH (p))
+	break;
+    }
+
+  p = grub_malloc (total_size);
+  if (! p)
+    return 0;
+
+  grub_memcpy (p, dp, total_size);
+  return p;
 }
 
 static void
