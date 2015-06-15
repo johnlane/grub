@@ -41,6 +41,10 @@ static const struct grub_arg_option options[] =
     {"all", 'a', 0, N_("Mount all."), 0, 0},
     {"boot", 'b', 0, N_("Mount all volumes with `boot' flag set."), 0, 0},
     {"header", 'H', 0, N_("Read LUKS header from file"), 0, ARG_TYPE_STRING},
+    {"keyfile", 'k', 0, N_("Key file"), 0, ARG_TYPE_STRING},
+    {"key-size", 'K', 0, N_("Set key size (bits)"), 0, ARG_TYPE_INT},
+    {"keyfile-offset", 'O', 0, N_("Key file offset (bytes)"), 0, ARG_TYPE_INT},
+    {"keyfile-size", 'S', 0, N_("Key file data size (bytes)"), 0, ARG_TYPE_INT},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -805,6 +809,8 @@ grub_util_cryptodisk_get_uuid (grub_disk_t disk)
 static int check_boot, have_it;
 static char *search_uuid;
 static grub_file_t hdr;
+static grub_uint8_t *key, keyfile_buffer[GRUB_CRYPTODISK_MAX_KEYFILE_SIZE];
+static grub_size_t keyfile_size;
 
 static void
 cryptodisk_close (grub_cryptodisk_t dev)
@@ -835,7 +841,7 @@ grub_cryptodisk_scan_device_real (const char *name, grub_disk_t source)
     if (!dev)
       continue;
     
-    err = cr->recover_key (source, dev, hdr);
+    err = cr->recover_key (source, dev, hdr, key, keyfile_size);
     if (err)
     {
       cryptodisk_close (dev);
@@ -938,12 +944,36 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
       hdr = grub_file_open (state[3].arg);
       if (!hdr)
         return grub_errno;
-      grub_printf ("\nUsing detached header %s\n", state[3].arg);
     }
   else
     hdr = NULL;
 
   have_it = 0;
+
+  if (state[4].set) /* Key file */
+    {
+      grub_file_t keyfile;
+      int keyfile_offset;
+
+      key = keyfile_buffer;
+      keyfile_offset = state[6].set ? grub_strtoul (state[6].arg, 0, 0) : 0;
+      keyfile_size = state[7].set ? grub_strtoul (state[7].arg, 0, 0) : \
+		                             GRUB_CRYPTODISK_MAX_KEYFILE_SIZE;
+
+      keyfile = grub_file_open (state[4].arg);
+      if (!keyfile)
+        return grub_errno;
+
+      if (grub_file_seek (keyfile, keyfile_offset) == (grub_off_t)-1)
+        return grub_errno;
+
+      keyfile_size = grub_file_read (keyfile, key, keyfile_size);
+      if (keyfile_size == (grub_size_t)-1)
+         return grub_errno;
+    }
+  else
+    key = NULL;
+
   if (state[0].set)
     {
       grub_cryptodisk_t dev;

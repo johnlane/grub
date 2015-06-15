@@ -136,6 +136,8 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
   ciphermode[sizeof (header.cipherMode)] = 0;
   grub_memcpy (hashspec, header.hashSpec, sizeof (header.hashSpec));
   hashspec[sizeof (header.hashSpec)] = 0;
+  grub_memcpy (uuid, header.uuid, sizeof (header.uuid));
+  uuid[sizeof (header.uuid)] = 0;
 
   ciph = grub_crypto_lookup_cipher_by_name (ciphername);
   if (!ciph)
@@ -322,12 +324,16 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
 static grub_err_t
 luks_recover_key (grub_disk_t source,
 		  grub_cryptodisk_t dev,
-	          grub_file_t hdr)
+		  grub_file_t hdr,
+		  grub_uint8_t *keyfile_bytes,
+		  grub_size_t keyfile_bytes_size)
 {
   struct grub_luks_phdr header;
   grub_size_t keysize;
   grub_uint8_t *split_key = NULL;
-  char passphrase[MAX_PASSPHRASE] = "";
+  char interactive_passphrase[MAX_PASSPHRASE] = "";
+  grub_uint8_t *passphrase;
+  grub_size_t passphrase_length;
   grub_uint8_t candidate_digest[sizeof (header.mkDigest)];
   unsigned i;
   grub_size_t length;
@@ -364,18 +370,30 @@ luks_recover_key (grub_disk_t source,
   if (!split_key)
     return grub_errno;
 
-  /* Get the passphrase from the user.  */
-  tmp = NULL;
-  if (source->partition)
-    tmp = grub_partition_get_name (source->partition);
-  grub_printf_ (N_("Enter passphrase for %s%s%s (%s): "), source->name,
-	       source->partition ? "," : "", tmp ? : "",
-	       dev->uuid);
-  grub_free (tmp);
-  if (!grub_password_get (passphrase, MAX_PASSPHRASE))
+  if (keyfile_bytes)
     {
-      grub_free (split_key);
-      return grub_error (GRUB_ERR_BAD_ARGUMENT, "Passphrase not supplied");
+      /* Use bytestring from key file as passphrase */
+      passphrase = keyfile_bytes;
+      passphrase_length = keyfile_bytes_size;
+    }
+  else
+    {
+      /* Get the passphrase from the user.  */
+      tmp = NULL;
+      if (source->partition)
+        tmp = grub_partition_get_name (source->partition);
+      grub_printf_ (N_("Enter passphrase for %s%s%s (%s): "), source->name,
+		    source->partition ? "," : "", tmp ? : "", dev->uuid);
+      grub_free (tmp);
+      if (!grub_password_get (interactive_passphrase, MAX_PASSPHRASE))
+        {
+          grub_free (split_key);
+          return grub_error (GRUB_ERR_BAD_ARGUMENT, "Passphrase not supplied");
+        }
+
+      passphrase = (grub_uint8_t *)interactive_passphrase;
+      passphrase_length = grub_strlen (interactive_passphrase);
+
     }
 
   /* Try to recover master key from each active keyslot.  */
@@ -393,7 +411,7 @@ luks_recover_key (grub_disk_t source,
 
       /* Calculate the PBKDF2 of the user supplied passphrase.  */
       gcry_err = grub_crypto_pbkdf2 (dev->hash, (grub_uint8_t *) passphrase,
-				     grub_strlen (passphrase),
+				     passphrase_length,
 				     header.keyblock[i].passwordSalt,
 				     sizeof (header.keyblock[i].passwordSalt),
 				     grub_be_to_cpu32 (header.keyblock[i].
