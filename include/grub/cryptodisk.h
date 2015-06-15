@@ -54,8 +54,13 @@ typedef enum
 #define GRUB_CRYPTODISK_GF_LOG_BYTES (GRUB_CRYPTODISK_GF_LOG_SIZE - 3)
 #define GRUB_CRYPTODISK_GF_BYTES (1U << GRUB_CRYPTODISK_GF_LOG_BYTES)
 #define GRUB_CRYPTODISK_MAX_KEYLEN 128
+#define GRUB_CRYPTODISK_MAX_PASSPHRASE 256
 
 #define GRUB_CRYPTODISK_MAX_KEYFILE_SIZE 8192
+
+#define GRUB_CRYPTODISK_PLAIN_CIPHER  "aes-cbc-essiv:sha256"
+#define GRUB_CRYPTODISK_PLAIN_DIGEST  "ripemd160"
+#define GRUB_CRYPTODISK_PLAIN_KEYSIZE 256
 
 struct grub_cryptodisk;
 
@@ -158,5 +163,8 @@ grub_util_get_geli_uuid (const char *dev);
 
 grub_cryptodisk_t grub_cryptodisk_get_by_uuid (const char *uuid);
 grub_cryptodisk_t grub_cryptodisk_get_by_source_disk (grub_disk_t disk);
+
+grub_cryptodisk_t grub_cryptodisk_create (grub_disk_t disk, char *uuid,
+				   char *ciphername, char *ciphermode, char *digest);
 
 #endif
