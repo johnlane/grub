@@ -111,6 +111,7 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
   hashspec[sizeof (header.hashSpec)] = 0;
   grub_memcpy (uuid, header.uuid, sizeof (header.uuid));
   uuid[sizeof (header.uuid)] = 0;
+  grub_cryptodisk_uuid_dehyphenate (uuid);
 
   if (check_uuid && grub_strcasecmp (check_uuid, uuid) != 0)
     {
