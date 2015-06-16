@@ -22,12 +22,6 @@ Get from [GitHub]({{ site.github.repo }}).
 
 Alternatively, check out [upstream](https://savannah.gnu.org/git/?group=grub) and apply these patches:
 
-0001-Cryptomount-support-LUKS-detached-header.patch
-0002-Cryptomount-support-key-files.patch
-0003-Cryptomount-support-plain-dm-crypt.patch
-0004-Cryptomount-support-for-hyphens-in-UUID.patch
-grub-crypto.png
-
 * [0001-Cryptomount-support-LUKS-detached-header.patch](/assets/0001-Cryptomount-support-LUKS-detached-header.patch)
 * [0002-Cryptomount-support-key-files.patch](/assets/0002-Cryptomount-support-key-files.patch)
 * [0003-Cryptomount-support-plain-dm-crypt.patch](/assets/0003-Cryptomount-support-plain-dm-crypt.patch)
