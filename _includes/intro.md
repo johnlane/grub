@@ -20,17 +20,22 @@ Get from [GitHub]({{ site.github.repo }}).
 
     $ git clone {{ site.github.repo }}
 
-<small>Merged upstream HEAD (c945ca75) on 2015/06/12</small>
-
 Alternatively, check out [upstream](https://savannah.gnu.org/git/?group=grub) and apply these patches:
 
-* [0001-Cryptomount-support-for-hyphens-in-UUID.patch](/assets/0001-Cryptomount-support-for-hyphens-in-UUID.patch)
-* [0002-Cryptomount-support-LUKS-detached-header.patch](/assets/0002-Cryptomount-support-LUKS-detached-header.patch)
-* [0003-Cryptomount-support-plain-dm-crypt-and-key-files.patch](/assets/0003-Cryptomount-support-plain-dm-crypt-and-key-files.patch)
+0001-Cryptomount-support-LUKS-detached-header.patch
+0002-Cryptomount-support-key-files.patch
+0003-Cryptomount-support-plain-dm-crypt.patch
+0004-Cryptomount-support-for-hyphens-in-UUID.patch
+grub-crypto.png
+
+* [0001-Cryptomount-support-LUKS-detached-header.patch](/assets/0001-Cryptomount-support-LUKS-detached-header.patch)
+* [0002-Cryptomount-support-key-files.patch](/assets/0002-Cryptomount-support-key-files.patch)
+* [0003-Cryptomount-support-plain-dm-crypt.patch](/assets/0003-Cryptomount-support-plain-dm-crypt.patch)
+* [0004-Cryptomount-support-for-hyphens-in-UUID.patch](/assets/0004-Cryptomount-support-for-hyphens-in-UUID.patch)
 
 Follow the build and install instructions in the upstream Grub [INSTALL](http://git.savannah.gnu.org/cgit/grub.git/tree/INSTALL) file.
 
-<small>Patches compatible with upstream HEAD (17328d) at time of writing, 2014/12/09</small>
+<small>Patches compatible with upstream HEAD (c945ca75) at time of writing, 2015/06/12</small>
 
 ### UUID availability
 
