@@ -54,7 +54,7 @@ typedef enum
 #define GRUB_CRYPTODISK_GF_LOG_BYTES (GRUB_CRYPTODISK_GF_LOG_SIZE - 3)
 #define GRUB_CRYPTODISK_GF_BYTES (1U << GRUB_CRYPTODISK_GF_LOG_BYTES)
 #define GRUB_CRYPTODISK_MAX_KEYLEN 128
-#define GRUB_CRYPTODISK_MAX_PASSPHRASE 512
+#define GRUB_CRYPTODISK_MAX_PASSPHRASE 256
 
 #define GRUB_CRYPTODISK_MAX_KEYFILE_SIZE 8192
 
@@ -116,7 +116,7 @@ struct grub_cryptodisk_dev
   grub_cryptodisk_t (*scan) (grub_disk_t disk, const char *check_uuid,
 			     int boot_only, grub_file_t hdr);
   grub_err_t (*recover_key) (grub_disk_t disk, grub_cryptodisk_t dev,
-		             grub_file_t hdr, grub_uint8_t *key, grub_size_t keyfile_size);
+			    grub_file_t hdr, grub_uint8_t *key, grub_size_t keyfile_size);
 };
 typedef struct grub_cryptodisk_dev *grub_cryptodisk_dev_t;
 
@@ -164,11 +164,10 @@ grub_util_get_geli_uuid (const char *dev);
 grub_cryptodisk_t grub_cryptodisk_get_by_uuid (const char *uuid);
 grub_cryptodisk_t grub_cryptodisk_get_by_source_disk (grub_disk_t disk);
 
-void
-grub_crypto_uuid_dehyphenate(char *uuid);
+grub_cryptodisk_t grub_cryptodisk_create (grub_disk_t disk, char *uuid,
+				   char *ciphername, char *ciphermode, char *digest);
 
-grub_cryptodisk_t
-grub_cryptodisk_create (grub_disk_t disk, char *uuid,
-		        char *ciphername, char *ciphermode, char *digest);
+void
+grub_cryptodisk_uuid_dehyphenate(char *uuid);
 
 #endif

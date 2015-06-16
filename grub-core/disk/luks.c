@@ -111,7 +111,7 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
   hashspec[sizeof (header.hashSpec)] = 0;
   grub_memcpy (uuid, header.uuid, sizeof (header.uuid));
   uuid[sizeof (header.uuid)] = 0;
-  grub_crypto_uuid_dehyphenate (uuid);
+  grub_cryptodisk_uuid_dehyphenate (uuid);
 
   if (check_uuid && grub_strcasecmp (check_uuid, uuid) != 0)
     {
@@ -130,9 +130,9 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
 static grub_err_t
 luks_recover_key (grub_disk_t source,
 		  grub_cryptodisk_t dev,
-	          grub_file_t hdr,
-	          grub_uint8_t *keyfile_bytes,
-	          grub_size_t keyfile_bytes_size)
+		  grub_file_t hdr,
+		  grub_uint8_t *keyfile_bytes,
+		  grub_size_t keyfile_bytes_size)
 {
   struct grub_luks_phdr header;
   grub_size_t keysize;
@@ -188,8 +188,8 @@ luks_recover_key (grub_disk_t source,
       tmp = NULL;
       if (source->partition)
         tmp = grub_partition_get_name (source->partition);
-        grub_printf_ (N_("Enter passphrase for %s%s%s (%s): "), source->name,
-                      source->partition ? "," : "", tmp ? : "", dev->uuid);
+      grub_printf_ (N_("Enter passphrase for %s%s%s (%s): "), source->name,
+		    source->partition ? "," : "", tmp ? : "", dev->uuid);
       grub_free (tmp);
       if (!grub_password_get (interactive_passphrase, GRUB_CRYPTODISK_MAX_PASSPHRASE))
         {

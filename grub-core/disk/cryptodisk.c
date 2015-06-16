@@ -41,15 +41,15 @@ static const struct grub_arg_option options[] =
     {"all", 'a', 0, N_("Mount all."), 0, 0},
     {"boot", 'b', 0, N_("Mount all volumes with `boot' flag set."), 0, 0},
     {"header", 'H', 0, N_("Read LUKS header from file"), 0, ARG_TYPE_STRING},
+    {"keyfile", 'k', 0, N_("Key file"), 0, ARG_TYPE_STRING},
+    {"key-size", 'K', 0, N_("Set key size (bits)"), 0, ARG_TYPE_INT},
+    {"keyfile-offset", 'O', 0, N_("Key file offset (bytes)"), 0, ARG_TYPE_INT},
+    {"keyfile-size", 'S', 0, N_("Key file data size (bytes)"), 0, ARG_TYPE_INT},
     {"plain", 'p', 0, N_("Plain (no LUKS header)"), 0, ARG_TYPE_NONE},
     {"cipher", 'c', 0, N_("Plain mode cipher"), 0, ARG_TYPE_STRING},
     {"digest", 'd', 0, N_("Plain mode passphrase digest (hash)"), 0, ARG_TYPE_STRING},
     {"offset", 'o', 0, N_("Plain mode data sector offset"), 0, ARG_TYPE_INT},
     {"size", 's', 0, N_("Size of raw device (sectors, defaults to whole device)"), 0, ARG_TYPE_INT},
-    {"keyfile", 'k', 0, N_("Key file"), 0, ARG_TYPE_STRING},
-    {"key-size", 'K', 0, N_("Set key size (bits)"), 0, ARG_TYPE_INT},
-    {"keyfile-offset", 'O', 0, N_("Key file offset (bytes)"), 0, ARG_TYPE_INT},
-    {"keyfile-size", 'S', 0, N_("Key file data size (bytes)"), 0, ARG_TYPE_INT},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -114,12 +114,11 @@ gf_mul_be (grub_uint8_t *o, const grub_uint8_t *a, const grub_uint8_t *b)
 }
 
 void
-grub_crypto_uuid_dehyphenate(char *uuid)
+grub_cryptodisk_uuid_dehyphenate(char *uuid)
 {
   char *s, *d;
   for (s=d=uuid;(*d=*s);d+=(*s++!='-'));
 }
-
 
 static gcry_err_code_t
 grub_crypto_pcbc_decrypt (grub_crypto_cipher_handle_t cipher,
@@ -514,7 +513,7 @@ grub_cryptodisk_open (const char *name, grub_disk_t disk)
 
   if (grub_memcmp (name, "cryptouuid/", sizeof ("cryptouuid/") - 1) == 0)
     {
-      grub_crypto_uuid_dehyphenate((char *)name + sizeof ("cryptouuid/"));
+      grub_cryptodisk_uuid_dehyphenate((char *)name + sizeof ("cryptouuid/"));
       for (dev = cryptodisk_list; dev != NULL; dev = dev->next)
 	if (grub_strcasecmp (name + sizeof ("cryptouuid/") - 1, dev->uuid) == 0)
 	  break;
@@ -1006,17 +1005,17 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 
   have_it = 0;
 
-  if (state[9].set) /* Key file */
+  if (state[4].set) /* Key file */
     {
       grub_file_t keyfile;
       int keyfile_offset;
 
       key = keyfile_buffer;
-      keyfile_offset = state[11].set ? grub_strtoul (state[11].arg, 0, 0) : 0;
-      keyfile_size = state[12].set ? grub_strtoul (state[12].arg, 0, 0) : \
+      keyfile_offset = state[6].set ? grub_strtoul (state[6].arg, 0, 0) : 0;
+      keyfile_size = state[7].set ? grub_strtoul (state[7].arg, 0, 0) : \
 		                             GRUB_CRYPTODISK_MAX_KEYFILE_SIZE;
 
-      keyfile = grub_file_open (state[9].arg);
+      keyfile = grub_file_open (state[4].arg);
       if (!keyfile)
         return grub_errno;
 
@@ -1034,7 +1033,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
     {
       grub_cryptodisk_t dev;
 
-      grub_crypto_uuid_dehyphenate(args[0]);
+      grub_cryptodisk_uuid_dehyphenate(args[0]);
       dev = grub_cryptodisk_get_by_uuid (args[0]);
       if (dev)
 	{
@@ -1090,18 +1089,18 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 	  return GRUB_ERR_NONE;
 	}
 
-      if (state[4].set) /* Plain mode */
+      if (state[8].set) /* Plain mode */
         {
           char *cipher;
           char *mode;
           char *digest;
           int offset, size, key_size;
 
-          cipher = grub_strdup (state[5].set ? state[5].arg : GRUB_CRYPTODISK_PLAIN_CIPHER);
-          digest = grub_strdup (state[6].set ? state[6].arg : GRUB_CRYPTODISK_PLAIN_DIGEST);
-          offset = state[7].set ? grub_strtoul (state[7].arg, 0, 0) : 0;
-          size   = state[8].set ? grub_strtoul (state[8].arg, 0, 0) : 0;
-          key_size = ( state[10].set ? grub_strtoul (state[10].arg, 0, 0) \
+          cipher = grub_strdup (state[9].set ? state[9].arg : GRUB_CRYPTODISK_PLAIN_CIPHER);
+          digest = grub_strdup (state[10].set ? state[10].arg : GRUB_CRYPTODISK_PLAIN_DIGEST);
+          offset = state[11].set ? grub_strtoul (state[11].arg, 0, 0) : 0;
+          size   = state[12].set ? grub_strtoul (state[12].arg, 0, 0) : 0;
+          key_size = ( state[5].set ? grub_strtoul (state[5].arg, 0, 0) \
 			             : GRUB_CRYPTODISK_PLAIN_KEYSIZE ) / 8;
 
           /* no strtok, do it manually */
@@ -1271,6 +1270,12 @@ luks_script_get (grub_size_t *sz)
   *sz = ptr - ret;
   return ret;
 }
+
+struct grub_procfs_entry luks_script =
+{
+  .name = "luks_script",
+  .get_contents = luks_script_get
+};
 
 grub_cryptodisk_t
 grub_cryptodisk_create (grub_disk_t disk, char *uuid,
@@ -1461,13 +1466,6 @@ grub_cryptodisk_create (grub_disk_t disk, char *uuid,
 
   return newdev;
 }
-
-
-struct grub_procfs_entry luks_script =
-{
-  .name = "luks_script",
-  .get_contents = luks_script_get
-};
 
 static grub_extcmd_t cmd;
 
