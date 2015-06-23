@@ -20,6 +20,7 @@
 #define GRUB_CRYPTODISK_HEADER	1
 
 #include <grub/disk.h>
+#include <grub/file.h>
 #include <grub/crypto.h>
 #include <grub/list.h>
 #ifdef GRUB_UTIL
@@ -106,8 +107,8 @@ struct grub_cryptodisk_dev
   struct grub_cryptodisk_dev **prev;
 
   grub_cryptodisk_t (*scan) (grub_disk_t disk, const char *check_uuid,
-			     int boot_only);
-  grub_err_t (*recover_key) (grub_disk_t disk, grub_cryptodisk_t dev);
+			     int boot_only, grub_file_t hdr);
+  grub_err_t (*recover_key) (grub_disk_t disk, grub_cryptodisk_t dev, grub_file_t hdr);
 };
 typedef struct grub_cryptodisk_dev *grub_cryptodisk_dev_t;
 
