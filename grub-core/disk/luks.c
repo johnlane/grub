@@ -68,9 +68,7 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
 		   int check_boot, grub_file_t hdr)
 {
   grub_cryptodisk_t newdev;
-  const char *iptr;
   struct grub_luks_phdr header;
-  char *optr;
   char uuid[sizeof (header.uuid) + 1];
   char ciphername[sizeof (header.cipherName) + 1];
   char ciphermode[sizeof (header.cipherMode) + 1];
@@ -104,22 +102,6 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
       || grub_be_to_cpu16 (header.version) != 1)
     return NULL;
 
-  optr = uuid;
-  for (iptr = header.uuid; iptr < &header.uuid[ARRAY_SIZE (header.uuid)];
-       iptr++)
-    {
-      if (*iptr != '-')
-        *optr++ = *iptr;
-    }
-  *optr = 0;
-
-  if (check_uuid && grub_strcasecmp (check_uuid, uuid) != 0)
-    {
-      grub_dprintf ("luks", "%s != %s\n", uuid, check_uuid);
-      return NULL;
-    }
-
-
   /* Make sure that strings are null terminated.  */
   grub_memcpy (ciphername, header.cipherName, sizeof (header.cipherName));
   ciphername[sizeof (header.cipherName)] = 0;
@@ -127,6 +109,14 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
   ciphermode[sizeof (header.cipherMode)] = 0;
   grub_memcpy (hashspec, header.hashSpec, sizeof (header.hashSpec));
   hashspec[sizeof (header.hashSpec)] = 0;
+  grub_memcpy (uuid, header.uuid, sizeof (header.uuid));
+  uuid[sizeof (header.uuid)] = 0;
+
+  if ( check_uuid && ! grub_cryptodisk_uuidcmp(check_uuid, uuid))
+    {
+      grub_dprintf ("luks", "%s != %s\n", uuid, check_uuid);
+      return NULL;
+    }
 
   newdev = grub_cryptodisk_create (disk, uuid, ciphername, ciphermode, hashspec);
 

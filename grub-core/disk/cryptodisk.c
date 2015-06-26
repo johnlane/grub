@@ -114,6 +114,20 @@ gf_mul_be (grub_uint8_t *o, const grub_uint8_t *a, const grub_uint8_t *b)
     }
 }
 
+int
+grub_cryptodisk_uuidcmp(char *uuid_a, char *uuid_b)
+{
+  while ((*uuid_a != '\0') && (*uuid_b != '\0'))
+    {
+      while (*uuid_a == '-') uuid_a++;
+      while (*uuid_b == '-') uuid_b++;
+      if (grub_toupper(*uuid_a) != grub_toupper(*uuid_b)) break;
+      uuid_a++;
+      uuid_b++;
+    }
+  return (*uuid_a == '\0') && (*uuid_b == '\0');
+}
+
 static gcry_err_code_t
 grub_crypto_pcbc_decrypt (grub_crypto_cipher_handle_t cipher,
 			 void *out, void *in, grub_size_t size,
@@ -509,8 +523,8 @@ grub_cryptodisk_open (const char *name, grub_disk_t disk)
   if (grub_memcmp (name, "cryptouuid/", sizeof ("cryptouuid/") - 1) == 0)
     {
       for (dev = cryptodisk_list; dev != NULL; dev = dev->next)
-	if (grub_strcasecmp (name + sizeof ("cryptouuid/") - 1, dev->uuid) == 0)
-	  break;
+        if (grub_cryptodisk_uuidcmp(name + sizeof ("cryptouuid/") - 1, dev->uuid))
+          break;
     }
   else
     {
@@ -742,7 +756,7 @@ grub_cryptodisk_get_by_uuid (const char *uuid)
 {
   grub_cryptodisk_t dev;
   for (dev = cryptodisk_list; dev != NULL; dev = dev->next)
-    if (grub_strcasecmp (dev->uuid, uuid) == 0)
+    if (grub_cryptodisk_uuidcmp(dev->uuid, uuid))
       return dev;
   return NULL;
 }
