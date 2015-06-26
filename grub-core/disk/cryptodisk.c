@@ -42,6 +42,9 @@ static const struct grub_arg_option options[] =
     {"all", 'a', 0, N_("Mount all."), 0, 0},
     {"boot", 'b', 0, N_("Mount all volumes with `boot' flag set."), 0, 0},
     {"header", 'H', 0, N_("Read LUKS header from file"), 0, ARG_TYPE_STRING},
+    {"keyfile", 'k', 0, N_("Key file"), 0, ARG_TYPE_STRING},
+    {"keyfile-offset", 'O', 0, N_("Key file offset (bytes)"), 0, ARG_TYPE_INT},
+    {"keyfile-size", 'S', 0, N_("Key file data size (bytes)"), 0, ARG_TYPE_INT},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -811,6 +814,8 @@ grub_util_cryptodisk_get_uuid (grub_disk_t disk)
 static int check_boot, have_it;
 static char *search_uuid;
 static grub_file_t hdr;
+static grub_uint8_t *key, keyfile_buffer[GRUB_CRYPTODISK_MAX_KEYFILE_SIZE];
+static grub_size_t keyfile_size;
 
 static void
 cryptodisk_close (grub_cryptodisk_t dev)
@@ -841,7 +846,7 @@ grub_cryptodisk_scan_device_real (const char *name, grub_disk_t source)
     if (!dev)
       continue;
     
-    err = cr->recover_key (source, dev, hdr);
+    err = cr->recover_key (source, dev, hdr, key, keyfile_size);
     if (err)
     {
       cryptodisk_close (dev);
@@ -949,6 +954,45 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
     hdr = NULL;
 
   have_it = 0;
+  key = NULL;
+
+  if (state[4].set) /* Key file; fails back to passphrase entry */
+    {
+      grub_file_t keyfile;
+      int keyfile_offset;
+      grub_size_t requested_keyfile_size;
+
+      requested_keyfile_size = state[6].set ? grub_strtoul(state[6].arg, 0, 0) : 0;
+
+      if (requested_keyfile_size > GRUB_CRYPTODISK_MAX_KEYFILE_SIZE)
+        grub_printf (N_("Key file size exceeds maximum (%llu)\n"), \
+	                     (unsigned long long) GRUB_CRYPTODISK_MAX_KEYFILE_SIZE);
+      else
+        {
+          keyfile_offset = state[5].set ? grub_strtoul (state[5].arg, 0, 0) : 0;
+          keyfile_size = requested_keyfile_size ? requested_keyfile_size : \
+		                             GRUB_CRYPTODISK_MAX_KEYFILE_SIZE;
+
+          keyfile = grub_file_open (state[4].arg);
+          if (!keyfile)
+            grub_printf (N_("Unable to open key file %s\n"), state[4].arg);
+          else if (grub_file_seek (keyfile, keyfile_offset) == (grub_off_t)-1)
+            grub_printf (N_("Unable to seek to offset %d in key file\n"), keyfile_offset);
+          else
+            {
+              keyfile_size = grub_file_read (keyfile, keyfile_buffer, keyfile_size);
+              if (keyfile_size == (grub_size_t)-1)
+                 grub_printf (N_("Error reading key file\n"));
+	      else if (requested_keyfile_size && (keyfile_size != requested_keyfile_size))
+                 grub_printf (N_("Cannot read %llu bytes for key file (read %llu bytes)\n"),
+                                                (unsigned long long) requested_keyfile_size,
+						(unsigned long long) keyfile_size);
+              else
+                key = keyfile_buffer;
+	    }
+        }
+    }
+
   if (state[0].set)
     {
       grub_cryptodisk_t dev;
