@@ -2,11 +2,15 @@ The Grub `cryptomount` command can mount [LUKS][1] volumes. This extension augme
 with support for detached headers and key files as well as adding support for plain [DMCrypt][2]
 volumes.
 
-It also allows a crypto volume UUID to be specified with or without embedded hyphens.
-
 This makes it possible to boot from [LUKS][1] and [DMCrypt][2] volumes. The LUKS header may
 be detached and stored on a separate device such as a removable USB key. Key files may be
 stored in a similar way and used instead of interactive passphrase entry.
+
+This extension also adds these features:
+
+* allow a crypto volume UUID to be specified with or without embedded hyphens.
+* give the user a second chance to enter a passphrase after failing to unlock a LUKS volume
+  with a given passphrase or key file.
 
 The extension provides the `cryptomount` command with several new command-line options. Use `cryptomount --help` to display them. The options parrallel those offered by [cryptsetup][3].
 
@@ -24,12 +28,13 @@ Alternatively, check out [upstream](https://savannah.gnu.org/git/?group=grub) an
 
 * [0001-Cryptomount-support-LUKS-detached-header.patch](/assets/0001-Cryptomount-support-LUKS-detached-header.patch)
 * [0002-Cryptomount-support-key-files.patch](/assets/0002-Cryptomount-support-key-files.patch)
-* [0003-Cryptomount-support-plain-dm-crypt.patch](/assets/0003-Cryptomount-support-plain-dm-crypt.patch)
-* [0004-Cryptomount-support-for-hyphens-in-UUID.patch](/assets/0004-Cryptomount-support-for-hyphens-in-UUID.patch)
+* [0003-Cryptomount-luks-allow-multiple-passphrase-attempts.patch](/assets/0003-Cryptomount-luks-allow-multiple-passphrase-attempts.patch)
+* [0004-Cryptomount-support-plain-dm-crypt.patch](/assets/0004-Cryptomount-support-plain-dm-crypt.patch)
+* [0005-Cryptomount-support-for-hyphens-in-UUID.patch](/assets/0005-Cryptomount-support-for-hyphens-in-UUID.patch)
 
 Follow the build and install instructions in the upstream Grub [INSTALL](http://git.savannah.gnu.org/cgit/grub.git/tree/INSTALL) file.
 
-<small>Patches compatible with upstream HEAD (c945ca75) at time of writing, 2015/06/12</small>
+<small>Patches compatible with upstream HEAD ([7a210304](http://git.savannah.gnu.org/cgit/grub.git/commit/?id=7a210304ebfd6d704b4fc08fe496a0c417441879)) at time of writing, 2015/06/28</small>
 
 ### UUID availability
 
@@ -40,6 +45,21 @@ attached headers.
 
 Specifically, the UUID cannot be used with plain DMCrypt volumes or when a LUKS detached
 header is used.
+
+### Key Files
+
+A key file contains the cryptographic material required to unlock a volume. This is a passphrase
+for a LUKS volume or a key for a plain volume. The required data is usually read from the beginning
+of the given file but the `offset` command-line option allows it to be read from within the file.
+
+When used in plain mode, the amount of data read is the number of bytes required for the key and an
+error will occur if insufficient data can be read.
+
+When used in LUKS mode, all of the available data (up to a maximum of 8KiB) is read and used as a
+passphrase. The `keyfile-size` command-line option can be used to limit the amount of data that is
+read. (This option does not apply to plain mode.)
+
+These options can be used together to embed a key or passhrase in a larger file.
 
 ### Examples
 
@@ -82,6 +102,12 @@ This example opens a LUKS volume using a detached LUKS header.
 
     insmod luks
     cryptomount -H (hd0,1)/header -k (hd0,1)/keyfile hd1,1
+
+#### 6. LUKS with a 50 character passphrase embedded 30 bytes into key file.
+
+    insmod luks
+    cryptomount -k (hd0,1)/keyfile -O 30 -S 50 hd1,1
+
 
 <div class="message" style="font-size:75%">
 GRUB is free software; you can redistribute it and/or modify it under the terms of the <a href="http://www.gnu.org/licenses/gpl.html">GNU General Public License</a> as published by the Free Software Foundation; either version 3 of the License, or (at your option) any later version.

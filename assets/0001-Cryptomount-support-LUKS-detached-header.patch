@@ -1,17 +1,17 @@
-From f3deadc4f7bccd09de68cc254f9034baf235cde2 Mon Sep 17 00:00:00 2001
+From 5c643ba894421ac78c3fe18ff9548d8e9fa82ed4 Mon Sep 17 00:00:00 2001
 From: John Lane <john@lane.uk.net>
-Date: Mon, 15 Jun 2015 10:15:13 +0100
-Subject: [PATCH 1/4] Cryptomount support LUKS detached header
+Date: Tue, 23 Jun 2015 11:16:30 +0100
+Subject: [PATCH 1/5] Cryptomount support LUKS detached header
 
 ---
- grub-core/disk/cryptodisk.c | 23 +++++++++++++++++++----
+ grub-core/disk/cryptodisk.c | 22 ++++++++++++++++++----
  grub-core/disk/geli.c       |  7 +++++--
  grub-core/disk/luks.c       | 45 +++++++++++++++++++++++++++++++++++++--------
  include/grub/cryptodisk.h   |  5 +++--
- 4 files changed, 64 insertions(+), 16 deletions(-)
+ 4 files changed, 63 insertions(+), 16 deletions(-)
 
 diff --git a/grub-core/disk/cryptodisk.c b/grub-core/disk/cryptodisk.c
-index 82a3dcb..65b3a01 100644
+index 82a3dcb..6f596a0 100644
 --- a/grub-core/disk/cryptodisk.c
 +++ b/grub-core/disk/cryptodisk.c
 @@ -40,6 +40,7 @@ static const struct grub_arg_option options[] =
@@ -55,7 +55,7 @@ index 82a3dcb..65b3a01 100644
      if (grub_errno)
        return grub_errno;
      if (!dev)
-@@ -928,6 +930,19 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
+@@ -928,6 +930,18 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
    if (argc < 1 && !state[1].set && !state[2].set)
      return grub_error (GRUB_ERR_BAD_ARGUMENT, "device name required");
  
@@ -67,7 +67,6 @@ index 82a3dcb..65b3a01 100644
 +      hdr = grub_file_open (state[3].arg);
 +      if (!hdr)
 +        return grub_errno;
-+      grub_printf ("\nUsing detached header %s\n", state[3].arg);
 +    }
 +  else
 +    hdr = NULL;
@@ -75,7 +74,7 @@ index 82a3dcb..65b3a01 100644
    have_it = 0;
    if (state[0].set)
      {
-@@ -1125,7 +1140,7 @@ GRUB_MOD_INIT (cryptodisk)
+@@ -1125,7 +1139,7 @@ GRUB_MOD_INIT (cryptodisk)
  {
    grub_disk_dev_register (&grub_cryptodisk_dev);
    cmd = grub_register_extcmd ("cryptomount", grub_cmd_cryptomount, 0,

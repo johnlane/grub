@@ -1,20 +1,20 @@
-From 43773c978e80812b5253da3bb0a1419f40e9dd9c Mon Sep 17 00:00:00 2001
+From c584bacaad58facb9124df26f98fff2542f7237a Mon Sep 17 00:00:00 2001
 From: John Lane <john@lane.uk.net>
-Date: Mon, 15 Jun 2015 12:14:11 +0100
-Subject: [PATCH 3/4] Cryptomount support plain dm-crypt
+Date: Fri, 26 Jun 2015 22:09:52 +0100
+Subject: [PATCH 4/5] Cryptomount support plain dm-crypt
 
 ---
  grub-core/disk/cryptodisk.c | 298 +++++++++++++++++++++++++++++++++++++++++++-
- grub-core/disk/luks.c       | 205 +-----------------------------
+ grub-core/disk/luks.c       | 195 +----------------------------
  include/grub/cryptodisk.h   |   8 ++
- 3 files changed, 309 insertions(+), 202 deletions(-)
+ 3 files changed, 310 insertions(+), 191 deletions(-)
 
 diff --git a/grub-core/disk/cryptodisk.c b/grub-core/disk/cryptodisk.c
-index fbe7db9..c519c55 100644
+index a27e70c..cd5cfc9 100644
 --- a/grub-core/disk/cryptodisk.c
 +++ b/grub-core/disk/cryptodisk.c
-@@ -45,6 +45,11 @@ static const struct grub_arg_option options[] =
-     {"key-size", 'K', 0, N_("Set key size (bits)"), 0, ARG_TYPE_INT},
+@@ -44,6 +44,12 @@ static const struct grub_arg_option options[] =
+     {"keyfile", 'k', 0, N_("Key file"), 0, ARG_TYPE_STRING},
      {"keyfile-offset", 'O', 0, N_("Key file offset (bytes)"), 0, ARG_TYPE_INT},
      {"keyfile-size", 'S', 0, N_("Key file data size (bytes)"), 0, ARG_TYPE_INT},
 +    {"plain", 'p', 0, N_("Plain (no LUKS header)"), 0, ARG_TYPE_NONE},
@@ -22,10 +22,11 @@ index fbe7db9..c519c55 100644
 +    {"digest", 'd', 0, N_("Plain mode passphrase digest (hash)"), 0, ARG_TYPE_STRING},
 +    {"offset", 'o', 0, N_("Plain mode data sector offset"), 0, ARG_TYPE_INT},
 +    {"size", 's', 0, N_("Size of raw device (sectors, defaults to whole device)"), 0, ARG_TYPE_INT},
++    {"key-size", 'K', 0, N_("Set key size (bits)"), 0, ARG_TYPE_INT},
      {0, 0, 0, 0, 0, 0}
    };
  
-@@ -928,6 +933,48 @@ grub_cryptodisk_scan_device (const char *name,
+@@ -927,6 +933,48 @@ grub_cryptodisk_scan_device (const char *name,
    return have_it && search_uuid ? 1 : 0;
  }
  
@@ -74,23 +75,23 @@ index fbe7db9..c519c55 100644
  static grub_err_t
  grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
  {
-@@ -1033,7 +1080,64 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
+@@ -1046,7 +1094,63 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
  	  return GRUB_ERR_NONE;
  	}
  
 -      err = grub_cryptodisk_scan_device_real (args[0], disk);
-+      if (state[8].set) /* Plain mode */
++      if (state[7].set) /* Plain mode */
 +        {
 +          char *cipher;
 +          char *mode;
 +          char *digest;
 +          int offset, size, key_size;
 +
-+          cipher = grub_strdup (state[9].set ? state[9].arg : GRUB_CRYPTODISK_PLAIN_CIPHER);
-+          digest = grub_strdup (state[10].set ? state[10].arg : GRUB_CRYPTODISK_PLAIN_DIGEST);
-+          offset = state[11].set ? grub_strtoul (state[11].arg, 0, 0) : 0;
-+          size   = state[12].set ? grub_strtoul (state[12].arg, 0, 0) : 0;
-+          key_size = ( state[5].set ? grub_strtoul (state[5].arg, 0, 0) \
++          cipher = grub_strdup (state[8].set ? state[8].arg : GRUB_CRYPTODISK_PLAIN_CIPHER);
++          digest = grub_strdup (state[9].set ? state[9].arg : GRUB_CRYPTODISK_PLAIN_DIGEST);
++          offset = state[10].set ? grub_strtoul (state[10].arg, 0, 0) : 0;
++          size   = state[11].set ? grub_strtoul (state[11].arg, 0, 0) : 0;
++          key_size = ( state[12].set ? grub_strtoul (state[12].arg, 0, 0) \
 +			             : GRUB_CRYPTODISK_PLAIN_KEYSIZE ) / 8;
 +
 +          /* no strtok, do it manually */
@@ -100,7 +101,6 @@ index fbe7db9..c519c55 100644
 +          else
 +            *mode++ = 0;
 +
-+          grub_printf ("\nCipher='%s' mode='%s'\n", cipher, mode);
 +          dev = grub_cryptodisk_create (disk, NULL, cipher, mode, digest);
 +
 +          dev->offset = offset;
@@ -140,7 +140,7 @@ index fbe7db9..c519c55 100644
  
        grub_disk_close (disk);
  
-@@ -1164,13 +1268,203 @@ struct grub_procfs_entry luks_script =
+@@ -1177,13 +1281,203 @@ struct grub_procfs_entry luks_script =
    .get_contents = luks_script_get
  };
  
@@ -346,7 +346,7 @@ index fbe7db9..c519c55 100644
    grub_procfs_register ("luks_script", &luks_script);
  }
 diff --git a/grub-core/disk/luks.c b/grub-core/disk/luks.c
-index 0d0db9d..069e72c 100644
+index 11e437e..4ebe21b 100644
 --- a/grub-core/disk/luks.c
 +++ b/grub-core/disk/luks.c
 @@ -30,8 +30,6 @@
@@ -358,13 +358,7 @@ index 0d0db9d..069e72c 100644
  #define LUKS_KEY_ENABLED  0x00AC71F3
  
  /* On disk LUKS header */
-@@ -70,21 +68,11 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
- 		   int check_boot, grub_file_t hdr)
- {
-   grub_cryptodisk_t newdev;
--  const char *iptr;
-   struct grub_luks_phdr header;
--  char *optr;
+@@ -76,15 +74,7 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
    char uuid[sizeof (header.uuid) + 1];
    char ciphername[sizeof (header.cipherName) + 1];
    char ciphermode[sizeof (header.cipherMode) + 1];
@@ -380,31 +374,26 @@ index 0d0db9d..069e72c 100644
    grub_err_t err;
  
    err = GRUB_ERR_NONE;
-@@ -114,21 +102,6 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
-       || grub_be_to_cpu16 (header.version) != 1)
-     return NULL;
- 
--  optr = uuid;
--  for (iptr = header.uuid; iptr < &header.uuid[ARRAY_SIZE (header.uuid)];
--       iptr++)
--    {
--      if (*iptr != '-')
+@@ -119,7 +109,7 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
+        iptr++)
+     {
+       if (*iptr != '-')
 -	*optr++ = *iptr;
--    }
--  *optr = 0;
--
--  if (check_uuid && grub_strcasecmp (check_uuid, uuid) != 0)
--    {
--      grub_dprintf ("luks", "%s != %s\n", uuid, check_uuid);
--      return NULL;
--    }
--
++        *optr++ = *iptr;
+     }
+   *optr = 0;
+ 
+@@ -129,6 +119,7 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
+       return NULL;
+     }
+ 
++
    /* Make sure that strings are null terminated.  */
    grub_memcpy (ciphername, header.cipherName, sizeof (header.cipherName));
    ciphername[sizeof (header.cipherName)] = 0;
-@@ -139,184 +112,16 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
-   grub_memcpy (uuid, header.uuid, sizeof (header.uuid));
-   uuid[sizeof (header.uuid)] = 0;
+@@ -137,184 +128,10 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
+   grub_memcpy (hashspec, header.hashSpec, sizeof (header.hashSpec));
+   hashspec[sizeof (header.hashSpec)] = 0;
  
 -  ciph = grub_crypto_lookup_cipher_by_name (ciphername);
 -  if (!ciph)
@@ -541,16 +530,14 @@ index 0d0db9d..069e72c 100644
 -	}
 -    }
 -  else
-+  if (check_uuid && grub_strcasecmp (check_uuid, uuid) != 0)
-     {
+-    {
 -      grub_crypto_cipher_close (cipher);
 -      grub_crypto_cipher_close (secondary_cipher);
 -      grub_error (GRUB_ERR_BAD_ARGUMENT, "Unknown IV mode: %s",
 -		  cipheriv);
-+      grub_dprintf ("luks", "%s != %s\n", uuid, check_uuid);
-       return NULL;
-     }
- 
+-      return NULL;
+-    }
+-
 -  /* Configure the hash used for the AF splitter and HMAC.  */
 -  hash = grub_crypto_lookup_md_by_name (hashspec);
 -  if (!hash)
@@ -590,7 +577,7 @@ index 0d0db9d..069e72c 100644
  
    return newdev;
  }
-@@ -331,7 +136,7 @@ luks_recover_key (grub_disk_t source,
+@@ -329,7 +146,7 @@ luks_recover_key (grub_disk_t source,
    struct grub_luks_phdr header;
    grub_size_t keysize;
    grub_uint8_t *split_key = NULL;
@@ -599,15 +586,24 @@ index 0d0db9d..069e72c 100644
    grub_uint8_t *passphrase;
    grub_size_t passphrase_length;
    grub_uint8_t candidate_digest[sizeof (header.mkDigest)];
-@@ -385,7 +190,7 @@ luks_recover_key (grub_disk_t source,
-       grub_printf_ (N_("Enter passphrase for %s%s%s (%s): "), source->name,
- 		    source->partition ? "," : "", tmp ? : "", dev->uuid);
-       grub_free (tmp);
--      if (!grub_password_get (interactive_passphrase, MAX_PASSPHRASE))
-+      if (!grub_password_get (interactive_passphrase, GRUB_CRYPTODISK_MAX_PASSPHRASE))
+@@ -376,7 +193,7 @@ luks_recover_key (grub_disk_t source,
+           /* Use bytestring from key file as passphrase */
+           passphrase = keyfile_bytes;
+           passphrase_length = keyfile_bytes_size;
+-	  keyfile_bytes = NULL; /* use it only once */
++          keyfile_bytes = NULL; /* use it only once */
+         }
+       else
          {
-           grub_free (split_key);
-           return grub_error (GRUB_ERR_BAD_ARGUMENT, "Passphrase not supplied");
+@@ -387,7 +204,7 @@ luks_recover_key (grub_disk_t source,
+           grub_printf_ (N_("Enter passphrase for %s%s%s (%s): "), source->name,
+                               source->partition ? "," : "", tmp ? : "", dev->uuid);
+           grub_free (tmp);
+-          if (!grub_password_get (interactive_passphrase, MAX_PASSPHRASE))
++          if (!grub_password_get (interactive_passphrase, GRUB_CRYPTODISK_MAX_PASSPHRASE))
+             {
+               grub_free (split_key);
+               return grub_error (GRUB_ERR_BAD_ARGUMENT, "Passphrase not supplied");
 diff --git a/include/grub/cryptodisk.h b/include/grub/cryptodisk.h
 index 0299625..4076412 100644
 --- a/include/grub/cryptodisk.h
