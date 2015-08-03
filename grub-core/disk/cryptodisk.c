@@ -115,7 +115,7 @@ gf_mul_be (grub_uint8_t *o, const grub_uint8_t *a, const grub_uint8_t *b)
 }
 
 int
-grub_cryptodisk_uuidcmp(char *uuid_a, char *uuid_b)
+grub_cryptodisk_uuidcmp(const char *uuid_a, const char *uuid_b)
 {
   while ((*uuid_a != '\0') && (*uuid_b != '\0'))
     {

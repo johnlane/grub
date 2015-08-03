@@ -169,5 +169,5 @@ grub_cryptodisk_t grub_cryptodisk_create (grub_disk_t disk, char *uuid,
 				   char *ciphername, char *ciphermode, char *digest);
 
 int
-grub_cryptodisk_uuidcmp(char *uuid_a, char *uuid_b);
+grub_cryptodisk_uuidcmp(const char *uuid_a, const char *uuid_b);
 #endif
