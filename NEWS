@@ -18,6 +18,7 @@ New in 2.02:
   * ZFS features support.
   * ZFS LZ4 support.
   * XFS V5 format support.
+  * LVM RAID1 support.
 
 * New/improved terminal and video support:
   * Monochrome text (matching `hercules' in GRUB Legacy).
@@ -49,6 +50,7 @@ New in 2.02:
   * Improve TFTP robustness.
   * Parse `nd' disk names in GRUB Legacy configuration files.
   * Issue separate DNS queries for IPv4 and IPv6.
+  * Support IPv6 Router Advertisement to configure default router.
 
 * Coreboot improvements:
   * CBFS support both in on-disk images (loopback) and flash.
@@ -59,6 +61,7 @@ New in 2.02:
   * Command for inspecting coreboot tables (`lscoreboot').
   * New target default_payload.elf.
   * Increased maximal core size.
+  * Prefer pmtimer for TSC calibration.
 
 * New/improved platform support:
   * New `efifwsetup' and `lsefi' commands on EFI platforms.
@@ -88,6 +91,15 @@ New in 2.02:
   * Support *-emu on Windows.
   * New platform `none' which builds only user level utilities. This is now
     default if target CPU is not supported.
+  * Support for booting little-endian Linux kernel on powerpc.
+  * Support network boot with Oracle sun4v vnet devices.
+  * Added SAS disks to the IEEE 1275 Open Firmware device list.
+  * Try multiple methods for TSC (timestamp counter) calibration - PIT, pmtimer,
+    EFI Stall. If everything fails, use hardcoded frequency 800MHz.
+  * Support Hyper-V Gen2 platforms which lack PIT for TSC calibration.
+  * Map UEFI Persistent Memory to E820 persistent memory.
+  * New Xen loader on ARM64.
+  * Respect alignment requirement for block device IO buffers on EFI.
 
 * Security:
   * Add optional facility to enforce that all files read by the core image
@@ -126,6 +138,11 @@ New in 2.02:
     menu entry immediately.
   * New `file' command and grub-file utility to check file types.
   * New syslinux configuration file parser.
+  * Set menu entry class to primary OS name returned by os-prober to display
+    OS specific icon.
+  * On Linux x86 detect EFI word size in grub-install and automatically select
+    correct platform (x86_64-efi or i386-efi) to install. Requires Linux kernel
+    4.0 or higher.
 
 * Build system:
   * Remove all uses of nested functions; GRUB no longer requires an
@@ -150,6 +167,10 @@ New in 2.02:
     directly. This removes requirement for target-specific runtime on build
     system.
   * emu libusb support removed (was broken and unmaintained).
+  * powerpc64le compile support.
+  * Use fixed timestamp when generating GRUB image for reproducible builds.
+  * Verify at build time that modules contain only supported relocations and their
+    structure matches what boot-time module loader expects.
 
 * Revision control moved to git.
 

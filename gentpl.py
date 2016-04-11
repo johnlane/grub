@@ -729,9 +729,11 @@ def kernel(defn, platform):
 """if test x$(TARGET_APPLE_LINKER) = x1; then \
   $(TARGET_STRIP) -S -x $(""" + cname(defn) + """) -o $@.bin $<; \
   $(TARGET_OBJCONV) -f$(TARGET_MODULE_FORMAT) -nr:_grub_mod_init:grub_mod_init -nr:_grub_mod_fini:grub_mod_fini -ed2022 -ed2016 -wd1106 -nu -nd $@.bin $@; \
+  rm -f $@.bin; \
    elif test ! -z '$(TARGET_OBJ2ELF)'; then \
      """  + "$(TARGET_STRIP) $(" + cname(defn) + "_STRIPFLAGS) -o $@.bin $< && \
      $(TARGET_OBJ2ELF) $@.bin $@ || (rm -f $@; rm -f $@.bin; exit 1); \
+     rm -f $@.bin; \
 else """  + "$(TARGET_STRIP) $(" + cname(defn) + "_STRIPFLAGS) -o $@ $<; \
 fi"""))
 
@@ -759,7 +761,7 @@ def image(defn, platform):
 if test x$(TARGET_APPLE_LINKER) = x1; then \
   $(MACHO2IMG) $< $@; \
 else \
-  $(TARGET_OBJCOPY) $(""" + cname(defn) + """_OBJCOPYFLAGS) --strip-unneeded -R .note -R .comment -R .note.gnu.build-id -R .MIPS.abiflags -R .reginfo -R .rel.dyn -R .note.gnu.gold-version $< $@; \
+  $(TARGET_OBJCOPY) $(""" + cname(defn) + """_OBJCOPYFLAGS) --strip-unneeded -R .note -R .comment -R .note.gnu.build-id -R .MIPS.abiflags -R .reginfo -R .rel.dyn -R .note.gnu.gold-version -R .ARM.exidx $< $@; \
 fi
 """)
 
@@ -834,6 +836,20 @@ def data(defn, platform):
     var_add("dist_" + installdir(defn) + "_DATA", platform_sources(defn, platform))
     gvar_add("dist_noinst_DATA", extra_dist(defn))
 
+def transform_data(defn, platform):
+    name = defn['name']
+
+    var_add(installdir(defn) + "_DATA", name)
+
+    rule(name, "$(top_builddir)/config.status " + platform_sources(defn, platform) + platform_dependencies(defn, platform), """
+(for x in """ + platform_sources(defn, platform) + """; do cat $(srcdir)/"$$x"; done) | $(top_builddir)/config.status --file=$@:-
+chmod a+x """ + name + """
+""")
+
+    gvar_add("CLEANFILES", name)
+    gvar_add("EXTRA_DIST", extra_dist(defn))
+    gvar_add("dist_noinst_DATA", platform_sources(defn, platform))
+
 def script(defn, platform):
     name = defn['name']
 
@@ -881,6 +897,7 @@ rules("library", library)
 rules("program", program)
 rules("script", script)
 rules("data", data)
+rules("transform_data", transform_data)
 
 write_output(section='decl')
 write_output()

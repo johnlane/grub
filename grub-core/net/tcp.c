@@ -498,11 +498,22 @@ grub_net_tcp_accept (grub_net_tcp_socket_t sock,
   struct grub_net_buff *nb_ack;
   struct tcphdr *tcph;
   grub_err_t err;
+  grub_net_network_level_address_t gateway;
+  struct grub_net_network_level_interface *inf;
 
   sock->recv_hook = recv_hook;
   sock->error_hook = error_hook;
   sock->fin_hook = fin_hook;
   sock->hook_data = hook_data;
+
+  err = grub_net_route_address (sock->out_nla, &gateway, &inf);
+  if (err)
+    return err;
+
+  err = grub_net_link_layer_resolve (sock->inf, &gateway, &(sock->ll_target_addr));
+  if (err)
+    return err;
+
   nb_ack = grub_netbuff_alloc (sizeof (*tcph)
 			       + GRUB_NET_OUR_MAX_IP_HEADER_SIZE
 			       + GRUB_NET_MAX_LINK_HEADER_SIZE);
@@ -595,10 +606,15 @@ grub_net_tcp_open (char *server,
 
   nb = grub_netbuff_alloc (sizeof (*tcph) + 128);
   if (!nb)
-    return NULL;
+    {
+      grub_free (socket);
+      return NULL;
+    }
+
   err = grub_netbuff_reserve (nb, 128);
   if (err)
     {
+      grub_free (socket);
       grub_netbuff_free (nb);
       return NULL;
     }
@@ -606,12 +622,14 @@ grub_net_tcp_open (char *server,
   err = grub_netbuff_put (nb, sizeof (*tcph));
   if (err)
     {
+      grub_free (socket);
       grub_netbuff_free (nb);
       return NULL;
     }
   socket->pq = grub_priority_queue_new (sizeof (struct grub_net_buff *), cmp);
   if (!socket->pq)
     {
+      grub_free (socket);
       grub_netbuff_free (nb);
       return NULL;
     }
@@ -882,7 +900,10 @@ grub_net_recv_tcp_packet (struct grub_net_buff *nb,
 	  grub_priority_queue_pop (sock->pq);
 	}
       if (grub_be_to_cpu32 (tcph->seqnr) != sock->their_cur_seq)
-	return GRUB_ERR_NONE;
+	{
+	  ack (sock);
+	  return GRUB_ERR_NONE;
+	}
       while (1)
 	{
 	  nb_top_p = grub_priority_queue_top (sock->pq);
@@ -964,6 +985,7 @@ grub_net_recv_tcp_packet (struct grub_net_buff *nb,
 					    cmp);
 	if (!sock->pq)
 	  {
+	    grub_free (sock);
 	    grub_netbuff_free (nb);
 	    return grub_errno;
 	  }

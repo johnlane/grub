@@ -82,7 +82,7 @@ parse_dhcp_vendor (const char *name, const void *vend, int limit, int *mask)
 	      grub_memcpy (&gw.ipv4, ptr, sizeof (gw.ipv4));
 	      rname = grub_xasprintf ("%s:default", name);
 	      if (rname)
-		grub_net_add_route_gw (rname, target, gw);
+		grub_net_add_route_gw (rname, target, gw, NULL);
 	      grub_free (rname);
 	    }
 	  break;
@@ -157,6 +157,9 @@ grub_net_configure_by_dhcp_ack (const char *name,
   hwaddr.type = GRUB_NET_LINK_LEVEL_PROTOCOL_ETHERNET;
 
   inter = grub_net_add_addr (name, card, &addr, &hwaddr, flags);
+  if (!inter)
+    return 0;
+
 #if 0
   /* This is likely based on misunderstanding. gateway_ip refers to
      address of BOOTP relay and should not be used after BOOTP transaction
@@ -368,6 +371,7 @@ grub_cmd_dhcpopt (struct grub_command *cmd __attribute__ ((unused)),
 
   if (grub_strcmp (args[3], "string") == 0)
     {
+      grub_err_t err = GRUB_ERR_NONE;
       char *val = grub_malloc (taglength + 1);
       if (!val)
 	return grub_errno;
@@ -376,8 +380,9 @@ grub_cmd_dhcpopt (struct grub_command *cmd __attribute__ ((unused)),
       if (args[0][0] == '-' && args[0][1] == 0)
 	grub_printf ("%s\n", val);
       else
-	return grub_env_set (args[0], val);
-      return GRUB_ERR_NONE;
+	err = grub_env_set (args[0], val);
+      grub_free (val);
+      return err;
     }
 
   if (grub_strcmp (args[3], "number") == 0)
@@ -399,6 +404,7 @@ grub_cmd_dhcpopt (struct grub_command *cmd __attribute__ ((unused)),
 
   if (grub_strcmp (args[3], "hex") == 0)
     {
+      grub_err_t err = GRUB_ERR_NONE;
       char *val = grub_malloc (2 * taglength + 1);
       int i;
       if (!val)
@@ -412,8 +418,9 @@ grub_cmd_dhcpopt (struct grub_command *cmd __attribute__ ((unused)),
       if (args[0][0] == '-' && args[0][1] == 0)
 	grub_printf ("%s\n", val);
       else
-	return grub_env_set (args[0], val);
-      return GRUB_ERR_NONE;
+	err = grub_env_set (args[0], val);
+      grub_free (val);
+      return err;
     }
 
   return grub_error (GRUB_ERR_BAD_ARGUMENT,

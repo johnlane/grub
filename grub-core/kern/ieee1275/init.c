@@ -46,11 +46,19 @@
 #define HEAP_MIN_SIZE		(unsigned long) (2 * 1024 * 1024)
 
 /* The maximum heap size we're going to claim */
+#ifdef __i386__
+#define HEAP_MAX_SIZE		(unsigned long) (64 * 1024 * 1024)
+#else
 #define HEAP_MAX_SIZE		(unsigned long) (32 * 1024 * 1024)
+#endif
 
 /* If possible, we will avoid claiming heap above this address, because it
    seems to cause relocation problems with OSes that link at 4 MiB */
+#ifdef __i386__
+#define HEAP_MAX_ADDR		(unsigned long) (64 * 1024 * 1024)
+#else
 #define HEAP_MAX_ADDR		(unsigned long) (32 * 1024 * 1024)
+#endif
 
 extern char _start[];
 extern char _end[];
@@ -166,7 +174,7 @@ heap_init (grub_uint64_t addr, grub_uint64_t len, grub_memory_type_t type,
 {
   unsigned long *total = data;
 
-  if (type != 1)
+  if (type != GRUB_MEMORY_AVAILABLE)
     return 0;
 
   if (grub_ieee1275_test_flag (GRUB_IEEE1275_FLAG_NO_PRE1_5M_CLAIM))

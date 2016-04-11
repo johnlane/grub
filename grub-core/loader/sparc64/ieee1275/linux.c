@@ -140,17 +140,17 @@ grub_linux_boot (void)
   grub_dprintf ("loader", "Jumping to Linux...\n");
 
   /* Boot the kernel.  */
-  asm volatile ("sethi	%hi(grub_ieee1275_entry_fn), %o1\n"
-		"ldx	[%o1 + %lo(grub_ieee1275_entry_fn)], %o4\n"
-		"sethi	%hi(grub_ieee1275_original_stack), %o1\n"
-		"ldx	[%o1 + %lo(grub_ieee1275_original_stack)], %o6\n"
-		"sethi	%hi(linux_addr), %o1\n"
-		"ldx	[%o1 + %lo(linux_addr)], %o5\n"
-		"mov    %g0, %o0\n"
-		"mov    %g0, %o2\n"
-		"mov    %g0, %o3\n"
-		"jmp    %o5\n"
-	        "mov    %g0, %o1\n");
+  asm volatile ("ldx	%0, %%o4\n"
+		"ldx	%1, %%o6\n"
+		"ldx	%2, %%o5\n"
+		"mov    %%g0, %%o0\n"
+		"mov    %%g0, %%o2\n"
+		"mov    %%g0, %%o3\n"
+		"jmp    %%o5\n"
+	        "mov    %%g0, %%o1\n": :
+		"m"(grub_ieee1275_entry_fn),
+		"m"(grub_ieee1275_original_stack),
+		"m"(linux_addr));
 
   return GRUB_ERR_NONE;
 }
@@ -196,26 +196,26 @@ alloc_phys_choose (grub_uint64_t addr, grub_uint64_t len,
   struct alloc_phys_ctx *ctx = data;
   grub_addr_t end = addr + len;
 
-  if (type != 1)
+  if (type != GRUB_MEMORY_AVAILABLE)
     return 0;
 
   addr = ALIGN_UP (addr, FOUR_MB);
   if (addr + ctx->size >= end)
     return 0;
 
-  if (addr >= grub_phys_start && addr < grub_phys_end)
+  /* OBP available region contains grub. Start at grub_phys_end. */
+  /* grub_phys_start does not start at the beginning of the memory region */
+  if ((grub_phys_start >= addr && grub_phys_end < end) ||
+      (addr > grub_phys_start && addr < grub_phys_end))
     {
       addr = ALIGN_UP (grub_phys_end, FOUR_MB);
       if (addr + ctx->size >= end)
 	return 0;
     }
-  if ((addr + ctx->size) >= grub_phys_start
-      && (addr + ctx->size) < grub_phys_end)
-    {
-      addr = ALIGN_UP (grub_phys_end, FOUR_MB);
-      if (addr + ctx->size >= end)
-	return 0;
-    }
+
+  grub_dprintf("loader",
+    "addr = 0x%lx grub_phys_start = 0x%lx grub_phys_end = 0x%lx\n",
+    addr, grub_phys_start, grub_phys_end);
 
   if (loaded)
     {
@@ -430,7 +430,7 @@ static int
 get_physbase (grub_uint64_t addr, grub_uint64_t len __attribute__ ((unused)),
 	      grub_memory_type_t type, void *data __attribute__ ((unused)))
 {
-  if (type != 1)
+  if (type != GRUB_MEMORY_AVAILABLE)
     return 0;
   if (addr < phys_base)
     phys_base = addr;
