@@ -4,7 +4,6 @@ highlighter:      pygments
 
 # Permalinks
 permalink:        pretty
-relative_permalinks: true
 
 # Setup
 title:            Grub Crypt
@@ -16,8 +15,6 @@ baseurl:          /
 author:
   name:           'John Lane'
   url:            http://johnlane.ie
-
-paginate:         5
 
 # Custom vars
 github:
