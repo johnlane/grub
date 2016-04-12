@@ -79,7 +79,7 @@ index a27e70c..cd5cfc9 100644
  	  return GRUB_ERR_NONE;
  	}
  
--      err = grub_cryptodisk_scan_device_real (args[0], disk);
+-      err = grub_cryptodisk_scan_device_real (diskname, disk);
 +      if (state[7].set) /* Plain mode */
 +        {
 +          char *cipher;
@@ -136,7 +136,7 @@ index a27e70c..cd5cfc9 100644
 +          err = GRUB_ERR_NONE;
 +        }
 +      else
-+        err = grub_cryptodisk_scan_device_real (args[0], disk);
++        err = grub_cryptodisk_scan_device_real (diskname, disk);
  
        grub_disk_close (disk);
  

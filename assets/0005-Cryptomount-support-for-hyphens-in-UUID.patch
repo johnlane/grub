@@ -18,7 +18,7 @@ index cd5cfc9..d36d16b 100644
  }
  
 +int
-+grub_cryptodisk_uuidcmp(char *uuid_a, char *uuid_b)
++grub_cryptodisk_uuidcmp(const char *uuid_a, const char *uuid_b)
 +{
 +  while ((*uuid_a != '\0') && (*uuid_b != '\0'))
 +    {
@@ -115,7 +115,7 @@ index 4076412..a564f2c 100644
  				   char *ciphername, char *ciphermode, char *digest);
  
 +int
-+grub_cryptodisk_uuidcmp(char *uuid_a, char *uuid_b);
++grub_cryptodisk_uuidcmp(const char *uuid_a, const char *uuid_b);
  #endif
 -- 
 2.1.2

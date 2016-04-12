@@ -34,7 +34,7 @@ Alternatively, check out [upstream](https://savannah.gnu.org/git/?group=grub) an
 
 Follow the build and install instructions in the upstream Grub [INSTALL](http://git.savannah.gnu.org/cgit/grub.git/tree/INSTALL) file.
 
-<small>Patches compatible with upstream HEAD ([7a210304](http://git.savannah.gnu.org/cgit/grub.git/commit/?id=7a210304ebfd6d704b4fc08fe496a0c417441879)) at time of writing, 2015/06/28</small>
+<small>Patches compatible with upstream HEAD ([abf9beb7](http://git.savannah.gnu.org/cgit/grub.git/commit/?id=abf9beb7d667d3604774753cf698c439c6fbc736)) at time of writing, 2016/04/12</small>
 
 ### UUID availability
 
