@@ -61,6 +61,9 @@ read. (This option does not apply to plain mode.)
 
 These options can be used together to embed a key or passhrase in a larger file.
 
+A key file may be either a file (`-k (hd0,1)/keyfile`) or a raw device (`-k (hd0,1)`). Thanks to
+[@giddie](https://github.com/johnlane/grub/pull/8) for the patch.
+
 ### Examples
 
 #### 1. Plain DMCrypt
