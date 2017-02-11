@@ -40,6 +40,12 @@
 #include <limits.h>
 #endif
 
+#if defined(MAJOR_IN_MKDEV)
+#include <sys/mkdev.h>
+#elif defined(MAJOR_IN_SYSMACROS)
+#include <sys/sysmacros.h>
+#endif
+
 #include <libdevmapper.h>
 
 #include <grub/types.h>
@@ -137,7 +143,7 @@ grub_util_get_dm_abstraction (const char *os_dev)
       grub_free (uuid);
       return GRUB_DEV_ABSTRACTION_LVM;
     }
-  if (strncmp (uuid, "CRYPT-LUKS1-", 4) == 0)
+  if (strncmp (uuid, "CRYPT-LUKS1-", 12) == 0)
     {
       grub_free (uuid);
       return GRUB_DEV_ABSTRACTION_LUKS;
