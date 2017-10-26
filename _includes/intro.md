@@ -34,7 +34,7 @@ Alternatively, check out [upstream](https://savannah.gnu.org/git/?group=grub) an
 
 Follow the build and install instructions in the upstream Grub [INSTALL](http://git.savannah.gnu.org/cgit/grub.git/tree/INSTALL) file.
 
-<small>Patches compatible with upstream HEAD ([8736a048](http://git.savannah.gnu.org/cgit/grub.git/commit/?id=529818738fb2aafb05721830dc99cc6c8736a048)) at time of writing, 2017/02/11</small>
+<small>Patches compatible with upstream HEAD ([afd0e534](http://git.savannah.gnu.org/cgit/grub.git/commit/?id=446794de8da4329ea532cbee4ca877bcafd0e534)) at time of writing, 2017/10/26</small>
 
 ### UUID availability
 
@@ -63,6 +63,10 @@ These options can be used together to embed a key or passhrase in a larger file.
 
 A key file may be either a file (`-k (hd0,1)/keyfile`) or a raw device (`-k (hd0,1)`). Thanks to
 [@giddie](https://github.com/johnlane/grub/pull/8) for the patch.
+
+### No Automatic Configuration
+
+This extension does not alter Grub's automated configuration (e.g. `grub-mkconfig`) in any way. Use of the extended options will require manual configuration of `grub.cfg`.
 
 ### Examples
 
