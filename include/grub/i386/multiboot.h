@@ -19,6 +19,13 @@
 #ifndef GRUB_MULTIBOOT_CPU_HEADER
 #define GRUB_MULTIBOOT_CPU_HEADER	1
 
+#define MULTIBOOT2_INITIAL_STATE  { .eax = MULTIBOOT2_BOOTLOADER_MAGIC,	\
+    .ecx = 0,								\
+    .edx = 0,								\
+    /* Set esp to some random location in low memory to avoid breaking */ \
+    /* non-compliant kernels.  */					\
+    .esp = 0x7ff00							\
+      }
 #define MULTIBOOT_INITIAL_STATE  { .eax = MULTIBOOT_BOOTLOADER_MAGIC,	\
     .ecx = 0,								\
     .edx = 0,								\
@@ -28,11 +35,15 @@
       }
 #define MULTIBOOT_ENTRY_REGISTER eip
 #define MULTIBOOT_MBI_REGISTER ebx
-#define MULTIBOOT_ARCHITECTURE_CURRENT MULTIBOOT_ARCHITECTURE_I386
+#define MULTIBOOT2_ARCHITECTURE_CURRENT MULTIBOOT2_ARCHITECTURE_I386
 
 #ifdef GRUB_MACHINE_EFI
 #ifdef __x86_64__
 #define MULTIBOOT_EFI_INITIAL_STATE  { .rax = MULTIBOOT_BOOTLOADER_MAGIC,	\
+    .rcx = 0,									\
+    .rdx = 0,									\
+      }
+#define MULTIBOOT2_EFI_INITIAL_STATE  { .rax = MULTIBOOT2_BOOTLOADER_MAGIC,	\
     .rcx = 0,									\
     .rdx = 0,									\
       }

@@ -87,7 +87,8 @@ struct fixup_block_list
 static int
 is_relocatable (const struct grub_install_image_target_desc *image_target)
 {
-  return image_target->id == IMAGE_EFI || image_target->id == IMAGE_UBOOT;
+  return image_target->id == IMAGE_EFI || image_target->id == IMAGE_UBOOT
+    || (image_target->id == IMAGE_COREBOOT && image_target->elf_target == EM_ARM);
 }
 
 #ifdef MKIMAGE_ELF32
@@ -185,8 +186,8 @@ grub_arm_reloc_jump24 (grub_uint32_t *target, Elf32_Addr sym_addr)
 void
 SUFFIX (grub_mkimage_generate_elf) (const struct grub_install_image_target_desc *image_target,
 				    int note, char **core_img, size_t *core_size,
-				    Elf_Addr target_addr, grub_size_t align,
-				    size_t kernel_size, size_t bss_size)
+				    Elf_Addr target_addr,
+				    struct grub_mkimage_layout *layout)
 {
   char *elf_img;
   size_t program_size;
@@ -214,7 +215,7 @@ SUFFIX (grub_mkimage_generate_elf) (const struct grub_install_image_target_desc 
       footer_size += XEN_NOTE_SIZE;
     }
   header_size = ALIGN_UP (sizeof (*ehdr) + phnum * sizeof (*phdr)
-			  + shnum * sizeof (*shdr) + string_size, align);
+			  + shnum * sizeof (*shdr) + string_size, layout->align);
 
   program_size = ALIGN_ADDR (*core_size);
 
@@ -258,7 +259,8 @@ SUFFIX (grub_mkimage_generate_elf) (const struct grub_install_image_target_desc 
   ehdr->e_entry = grub_host_to_target32 (target_addr);
   phdr->p_vaddr = grub_host_to_target32 (target_addr);
   phdr->p_paddr = grub_host_to_target32 (target_addr);
-  phdr->p_align = grub_host_to_target32 (align > image_target->link_align ? align : image_target->link_align);
+  phdr->p_align = grub_host_to_target32 (layout->align > image_target->link_align ?
+					 layout->align : image_target->link_align);
   if (image_target->id == IMAGE_LOONGSON_ELF)
     ehdr->e_flags = grub_host_to_target32 (0x1000 | EF_MIPS_NOREORDER 
 					   | EF_MIPS_PIC | EF_MIPS_CPIC);
@@ -272,27 +274,34 @@ SUFFIX (grub_mkimage_generate_elf) (const struct grub_install_image_target_desc 
   else
     {
       grub_uint32_t target_addr_mods;
-      phdr->p_filesz = grub_host_to_target32 (kernel_size);
-      phdr->p_memsz = grub_host_to_target32 (kernel_size + bss_size);
+      phdr->p_filesz = grub_host_to_target32 (layout->kernel_size);
+      if (image_target->id == IMAGE_COREBOOT && image_target->elf_target == EM_ARM)
+	phdr->p_memsz = grub_host_to_target32 (layout->kernel_size);
+      else
+	phdr->p_memsz = grub_host_to_target32 (layout->kernel_size + layout->bss_size);
 
       phdr++;
       phdr->p_type = grub_host_to_target32 (PT_GNU_STACK);
-      phdr->p_offset = grub_host_to_target32 (header_size + kernel_size);
+      phdr->p_offset = grub_host_to_target32 (header_size + layout->kernel_size);
       phdr->p_paddr = phdr->p_vaddr = phdr->p_filesz = phdr->p_memsz = 0;
       phdr->p_flags = grub_host_to_target32 (PF_R | PF_W | PF_X);
       phdr->p_align = grub_host_to_target32 (image_target->link_align);
 
       phdr++;
       phdr->p_type = grub_host_to_target32 (PT_LOAD);
-      phdr->p_offset = grub_host_to_target32 (header_size + kernel_size);
+      phdr->p_offset = grub_host_to_target32 (header_size + layout->kernel_size);
       phdr->p_flags = grub_host_to_target32 (PF_R | PF_W | PF_X);
       phdr->p_filesz = phdr->p_memsz
-	= grub_host_to_target32 (*core_size - kernel_size);
+	= grub_host_to_target32 (*core_size - layout->kernel_size);
 
-      if (image_target->id == IMAGE_COREBOOT)
+      if (image_target->id == IMAGE_COREBOOT && image_target->elf_target == EM_386)
 	target_addr_mods = GRUB_KERNEL_I386_COREBOOT_MODULES_ADDR;
+      else if (image_target->id == IMAGE_COREBOOT && image_target->elf_target == EM_ARM)
+	target_addr_mods = ALIGN_UP (target_addr + layout->end
+				     + image_target->mod_gap,
+				     image_target->mod_align);
       else
-	target_addr_mods = ALIGN_UP (target_addr + kernel_size + bss_size
+	target_addr_mods = ALIGN_UP (target_addr + layout->kernel_size + layout->bss_size
 				     + image_target->mod_gap,
 				     image_target->mod_align);
       phdr->p_vaddr = grub_host_to_target_addr (target_addr_mods);
@@ -434,7 +443,7 @@ SUFFIX (grub_mkimage_generate_elf) (const struct grub_install_image_target_desc 
     shdr->sh_size = grub_host_to_target32 (string_size);
     shdr->sh_link = grub_host_to_target32 (0);
     shdr->sh_info = grub_host_to_target32 (0);
-    shdr->sh_addralign = grub_host_to_target32 (align);
+    shdr->sh_addralign = grub_host_to_target32 (layout->align);
     shdr->sh_entsize = grub_host_to_target32 (0);
     shdr++;
 
@@ -445,10 +454,10 @@ SUFFIX (grub_mkimage_generate_elf) (const struct grub_install_image_target_desc 
     shdr->sh_type = grub_host_to_target32 (SHT_PROGBITS);
     shdr->sh_addr = grub_host_to_target_addr (target_addr);
     shdr->sh_offset = grub_host_to_target_addr (header_size);
-    shdr->sh_size = grub_host_to_target32 (kernel_size);
+    shdr->sh_size = grub_host_to_target32 (layout->kernel_size);
     shdr->sh_link = grub_host_to_target32 (0);
     shdr->sh_info = grub_host_to_target32 (0);
-    shdr->sh_addralign = grub_host_to_target32 (align);
+    shdr->sh_addralign = grub_host_to_target32 (layout->align);
     shdr->sh_entsize = grub_host_to_target32 (0);
     shdr++;
 
@@ -456,9 +465,9 @@ SUFFIX (grub_mkimage_generate_elf) (const struct grub_install_image_target_desc 
     shdr->sh_name = grub_host_to_target32 (ptr - str_start);
     ptr += sizeof ("mods");
     shdr->sh_type = grub_host_to_target32 (SHT_PROGBITS);
-    shdr->sh_addr = grub_host_to_target_addr (target_addr + kernel_size);
-    shdr->sh_offset = grub_host_to_target_addr (header_size + kernel_size);
-    shdr->sh_size = grub_host_to_target32 (*core_size - kernel_size);
+    shdr->sh_addr = grub_host_to_target_addr (target_addr + layout->kernel_size);
+    shdr->sh_offset = grub_host_to_target_addr (header_size + layout->kernel_size);
+    shdr->sh_size = grub_host_to_target32 (*core_size - layout->kernel_size);
     shdr->sh_link = grub_host_to_target32 (0);
     shdr->sh_info = grub_host_to_target32 (0);
     shdr->sh_addralign = grub_host_to_target32 (image_target->voidp_sizeof);
@@ -471,7 +480,7 @@ SUFFIX (grub_mkimage_generate_elf) (const struct grub_install_image_target_desc 
 	shdr->sh_name = grub_host_to_target32 (ptr - str_start);
 	ptr += sizeof (".xen");
 	shdr->sh_type = grub_host_to_target32 (SHT_PROGBITS);
-	shdr->sh_addr = grub_host_to_target_addr (target_addr + kernel_size);
+	shdr->sh_addr = grub_host_to_target_addr (target_addr + layout->kernel_size);
 	shdr->sh_offset = grub_host_to_target_addr (program_size + header_size);
 	shdr->sh_size = grub_host_to_target32 (XEN_NOTE_SIZE);
 	shdr->sh_link = grub_host_to_target32 (0);
@@ -907,6 +916,7 @@ SUFFIX (relocate_addresses) (Elf_Ehdr *e, Elf_Shdr *sections,
 									    + sym->st_value
 									    - image_target->vaddr_offset));
 		  }
+		/* FALLTHROUGH */
 		case R_IA64_LTOFF_FPTR22:
 		  *gpptr = grub_host_to_target64 (addend + sym_addr);
 		  grub_ia64_add_value_to_slot_21 ((grub_addr_t) target,
@@ -1874,7 +1884,7 @@ SUFFIX (locate_sections) (Elf_Ehdr *e, const char *kernel_path,
      Platforms other than EFI and U-boot shouldn't have .bss in
      their binaries as we build with -Wl,-Ttext.
   */
-  if (image_target->id != IMAGE_UBOOT)
+  if (image_target->id == IMAGE_EFI || !is_relocatable (image_target))
     layout->kernel_size = layout->end;
 
   return section_addresses;
@@ -1977,6 +1987,7 @@ SUFFIX (grub_mkimage_load_image) (const char *kernel_path,
   if (image_target->id == IMAGE_SPARC64_AOUT
       || image_target->id == IMAGE_SPARC64_RAW
       || image_target->id == IMAGE_UBOOT
+      || image_target->id == IMAGE_COREBOOT
       || image_target->id == IMAGE_SPARC64_CDCORE)
     layout->kernel_size = ALIGN_UP (layout->kernel_size, image_target->mod_align);
 
@@ -2082,7 +2093,7 @@ SUFFIX (grub_mkimage_load_image) (const char *kernel_path,
 	   Platforms other than EFI and U-boot shouldn't have .bss in
 	   their binaries as we build with -Wl,-Ttext.
 	*/
-	|| (SUFFIX (is_bss_section) (s, image_target) && (image_target->id != IMAGE_UBOOT))
+	|| (SUFFIX (is_bss_section) (s, image_target) && (image_target->id == IMAGE_EFI || !is_relocatable (image_target)))
 	|| SUFFIX (is_text_section) (s, image_target))
       {
 	if (grub_target_to_host32 (s->sh_type) == SHT_NOBITS)

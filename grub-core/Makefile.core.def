@@ -68,11 +68,11 @@ kernel = {
   i386_pc_ldflags          = '$(TARGET_IMG_LDFLAGS)';
   i386_pc_ldflags          = '$(TARGET_IMG_BASE_LDOPT),0x9000';
   i386_qemu_ldflags        = '$(TARGET_IMG_LDFLAGS)';
-  i386_qemu_ldflags        = '$(TARGET_IMG_BASE_LDOPT),0x8200';
+  i386_qemu_ldflags        = '$(TARGET_IMG_BASE_LDOPT),0x9000';
   i386_coreboot_ldflags    = '$(TARGET_IMG_LDFLAGS)';
-  i386_coreboot_ldflags    = '$(TARGET_IMG_BASE_LDOPT),0x8200';
+  i386_coreboot_ldflags    = '$(TARGET_IMG_BASE_LDOPT),0x9000';
   i386_multiboot_ldflags   = '$(TARGET_IMG_LDFLAGS)';
-  i386_multiboot_ldflags   = '$(TARGET_IMG_BASE_LDOPT),0x8200';
+  i386_multiboot_ldflags   = '$(TARGET_IMG_BASE_LDOPT),0x9000';
   i386_ieee1275_ldflags    = '$(TARGET_IMG_LDFLAGS)';
   i386_ieee1275_ldflags    = '$(TARGET_IMG_BASE_LDOPT),0x10000';
   i386_xen_ldflags         = '$(TARGET_IMG_LDFLAGS)';
@@ -92,6 +92,8 @@ kernel = {
   emu_cppflags = '$(CPPFLAGS_GNULIB)';
   arm_uboot_ldflags       = '-Wl,-r,-d';
   arm_uboot_stripflags    = '--strip-unneeded -K start -R .note -R .comment -R .note.gnu.gold-version';
+  arm_coreboot_ldflags       = '-Wl,-r,-d';
+  arm_coreboot_stripflags    = '--strip-unneeded -K start -R .note -R .comment -R .note.gnu.gold-version';
 
   i386_pc_startup = kern/i386/pc/startup.S;
   i386_efi_startup = kern/i386/efi/startup.S;
@@ -105,7 +107,8 @@ kernel = {
   mips_startup = kern/mips/startup.S;
   sparc64_ieee1275_startup = kern/sparc64/ieee1275/crt0.S;
   powerpc_ieee1275_startup = kern/powerpc/ieee1275/startup.S;
-  arm_uboot_startup = kern/arm/uboot/startup.S;
+  arm_uboot_startup = kern/arm/startup.S;
+  arm_coreboot_startup = kern/arm/startup.S;
   arm_efi_startup = kern/arm/efi/startup.S;
   arm64_efi_startup = kern/arm64/efi/startup.S;
 
@@ -149,6 +152,21 @@ kernel = {
   uboot = kern/uboot/init.c;
   uboot = kern/uboot/hw.c;
   uboot = term/uboot/console.c;
+  arm_uboot = kern/arm/uboot/init.c;
+  arm_uboot = kern/arm/uboot/uboot.S;
+
+  arm_coreboot = kern/arm/coreboot/init.c;
+  arm_coreboot = kern/arm/coreboot/timer.c;
+  arm_coreboot = kern/arm/coreboot/coreboot.S;
+  arm_coreboot = lib/fdt.c;
+  arm_coreboot = bus/fdt.c;
+  arm_coreboot = term/ps2.c;
+  arm_coreboot = term/arm/pl050.c;
+  arm_coreboot = term/arm/cros.c;
+  arm_coreboot = term/arm/cros_ec.c;
+  arm_coreboot = bus/spi/rk3288_spi.c;
+  arm_coreboot = commands/keylayouts.c;
+  arm_coreboot = kern/arm/coreboot/dma.c;
 
   terminfoinkernel = term/terminfo.c;
   terminfoinkernel = term/tparm.c;
@@ -164,7 +182,7 @@ kernel = {
   i386_multiboot = kern/i386/coreboot/init.c;
   i386_qemu = kern/i386/qemu/init.c;
   i386_coreboot_multiboot_qemu = term/i386/pc/vga_text.c;
-  i386_coreboot = video/i386/coreboot/cbfb.c;
+  coreboot = video/coreboot/cbfb.c;
 
   efi = disk/efi/efidisk.c;
   efi = kern/efi/efi.c;
@@ -225,8 +243,10 @@ kernel = {
   i386_qemu = kern/vga_init.c;
   i386_qemu = kern/i386/qemu/mmap.c;
 
-  i386_coreboot = kern/i386/coreboot/mmap.c;
+  coreboot = kern/coreboot/mmap.c;
   i386_coreboot = kern/i386/coreboot/cbtable.c;
+  coreboot = kern/coreboot/cbtable.c;
+  arm_coreboot = kern/arm/coreboot/cbtable.c;
 
   i386_multiboot = kern/i386/multiboot_mmap.c;
 
@@ -238,6 +258,7 @@ kernel = {
   mips_qemu_mips = term/ns8250.c;
   mips_qemu_mips = term/serial.c;
   mips_qemu_mips = term/at_keyboard.c;
+  mips_qemu_mips = term/ps2.c;
   mips_qemu_mips = commands/boot.c;
   mips_qemu_mips = commands/keylayouts.c;
   mips_qemu_mips = term/i386/pc/vga_text.c;
@@ -253,6 +274,7 @@ kernel = {
   mips_loongson = bus/pci.c;
   mips_loongson = kern/mips/loongson/init.c;
   mips_loongson = term/at_keyboard.c;
+  mips_loongson = term/ps2.c;
   mips_loongson = commands/boot.c;
   mips_loongson = term/serial.c;
   mips_loongson = video/sm712.c;
@@ -574,7 +596,10 @@ module = {
 module = {
   name = ehci;
   common = bus/usb/ehci.c;
+  arm_coreboot = bus/usb/ehci-fdt.c;
+  pci = bus/usb/ehci-pci.c;
   enable = pci;
+  enable = arm_coreboot;
 };
 
 module = {
@@ -641,6 +666,7 @@ module = {
 module = {
   name = cbtable;
   common = kern/i386/coreboot/cbtable.c;
+  common = kern/coreboot/cbtable.c;
   enable = i386_pc;
   enable = i386_efi;
   enable = i386_qemu;
@@ -754,6 +780,7 @@ module = {
   enable = arm_efi;
   enable = arm64_efi;
   enable = arm_uboot;
+  enable = arm_coreboot;
 };
 
 module = {
@@ -837,17 +864,14 @@ module = {
   efi = lib/efi/halt.c;
   ieee1275 = lib/ieee1275/halt.c;
   emu = lib/emu/halt.c;
-  uboot = lib/uboot/halt.c;
+  uboot = lib/dummy/halt.c;
+  arm_coreboot = lib/dummy/halt.c;
 };
 
 module = {
   name = reboot;
   i386 = lib/i386/reboot.c;
   i386 = lib/i386/reboot_trampoline.S;
-  ia64_efi = lib/efi/reboot.c;
-  x86_64_efi = lib/efi/reboot.c;
-  arm_efi = lib/efi/reboot.c;
-  arm64_efi = lib/efi/reboot.c;
   powerpc_ieee1275 = lib/ieee1275/reboot.c;
   sparc64_ieee1275 = lib/ieee1275/reboot.c;
   mips_arc = lib/mips/arc/reboot.c;
@@ -855,6 +879,7 @@ module = {
   mips_qemu_mips = lib/mips/qemu_mips/reboot.c;
   xen = lib/xen/reboot.c;
   uboot = lib/uboot/reboot.c;
+  arm_coreboot = lib/dummy/reboot.c;
   common = commands/reboot.c;
 };
 
@@ -873,7 +898,6 @@ module = {
 module = {
   name = hdparm;
   common = commands/hdparm.c;
-  common = lib/hexdump.c;
   enable = pci;
   enable = mips_qemu_mips;
 };
@@ -1548,7 +1572,8 @@ module = {
   name = datetime;
   cmos = lib/cmos_datetime.c;
   efi = lib/efi/datetime.c;
-  uboot = lib/uboot/datetime.c;
+  uboot = lib/dummy/datetime.c;
+  arm_coreboot = lib/dummy/datetime.c;
   sparc64_ieee1275 = lib/ieee1275/datetime.c;
   powerpc_ieee1275 = lib/ieee1275/datetime.c;
   sparc64_ieee1275 = lib/ieee1275/cmos.c;
@@ -1601,8 +1626,6 @@ module = {
 module = {
   name = linux16;
   common = loader/i386/pc/linux.c;
-  common = loader/linux.c;
-  common = lib/cmdline.c;
   enable = x86;
 };
 
@@ -1637,7 +1660,6 @@ module = {
   cppflags = "-DGRUB_USE_MULTIBOOT2";
 
   common = loader/multiboot.c;
-  common = lib/cmdline.c;
   common = loader/multiboot_mbi2.c;
   enable = x86;
   enable = mips;
@@ -1646,7 +1668,6 @@ module = {
 module = {
   name = multiboot;
   common = loader/multiboot.c;
-  common = lib/cmdline.c;
   x86 = loader/i386/multiboot_mbi.c;
   extra_dist = loader/multiboot_elfxx.c;
   enable = x86;
@@ -1654,7 +1675,6 @@ module = {
 
 module = {
   name = xen_boot;
-  common = lib/cmdline.c;
   arm64 = loader/arm64/xen_boot.c;
   enable = arm64;
 };
@@ -1677,7 +1697,7 @@ module = {
 
 module = {
   name = fdt;
-  arm64 = loader/arm64/fdt.c;
+  arm64 = loader/efi/fdt.c;
   common = lib/fdt.c;
   enable = fdt;
 };
@@ -1869,6 +1889,7 @@ module = {
 module = {
   name = at_keyboard;
   common = term/at_keyboard.c;
+  common = term/ps2.c;
   enable = x86;
 };
 
@@ -1959,6 +1980,11 @@ module = {
 module = {
   name = exfctest;
   common = tests/example_functional_test.c;
+};
+
+module = {
+  name = strtoull_test;
+  common = tests/strtoull_test.c;
 };
 
 module = {

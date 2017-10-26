@@ -27,9 +27,9 @@
 #include <grub/misc.h>
 #include <grub/mm.h>
 #include <grub/types.h>
-#include <grub/cpu/fdtload.h>
 #include <grub/cpu/linux.h>
 #include <grub/efi/efi.h>
+#include <grub/efi/fdtload.h>
 #include <grub/efi/pe32.h>	/* required by struct xen_hypervisor_header */
 #include <grub/i18n.h>
 #include <grub/lib/cmdline.h>
@@ -156,7 +156,7 @@ prepare_xen_module_params (struct xen_boot_binary *module, void *xen_boot_fdt)
       grub_fdt_add_subnode (xen_boot_fdt, chosen_node, module_name);
 
   retval = grub_fdt_set_prop (xen_boot_fdt, module_node, "compatible",
-			      MODULE_CUSTOM_COMPATIBLE, sizeof(MODULE_CUSTOM_COMPATIBLE) - 1);
+			      MODULE_CUSTOM_COMPATIBLE, sizeof(MODULE_CUSTOM_COMPATIBLE));
   if (retval)
     return grub_error (GRUB_ERR_IO, "failed to update FDT");
 
@@ -324,10 +324,9 @@ xen_boot_binary_load (struct xen_boot_binary *binary, grub_file_t file,
   grub_dprintf ("xen_loader", "Xen_boot file size: 0x%lx\n", binary->size);
 
   binary->start
-    = (grub_addr_t) grub_efi_allocate_pages (0,
-					     GRUB_EFI_BYTES_TO_PAGES
-					     (binary->size +
-					      binary->align));
+    = (grub_addr_t) grub_efi_allocate_any_pages (GRUB_EFI_BYTES_TO_PAGES
+						 (binary->size +
+						  binary->align));
   if (!binary->start)
     {
       grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
@@ -379,6 +378,20 @@ grub_cmd_xen_module (grub_command_t cmd __attribute__((unused)),
 
   struct xen_boot_binary *module = NULL;
   grub_file_t file = 0;
+  int nounzip = 0;
+
+  if (!argc)
+    {
+      grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
+      goto fail;
+    }
+
+  if (grub_strcmp (argv[0], "--nounzip") == 0)
+    {
+      argv++;
+      argc--;
+      nounzip = 1;
+    }
 
   if (!argc)
     {
@@ -403,6 +416,8 @@ grub_cmd_xen_module (grub_command_t cmd __attribute__((unused)),
 
   grub_dprintf ("xen_loader", "Init module and node info\n");
 
+  if (nounzip)
+    grub_file_filter_disable_compression ();
   file = grub_file_open (argv[0]);
   if (!file)
     goto fail;

@@ -1,6 +1,6 @@
 /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2013  Free Software Foundation, Inc.
+ *  Copyright (C) 2009  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,26 +16,14 @@
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <grub/types.h>
-#include <grub/symbol.h>
-#include <grub/uboot/uboot.h>
-#include <grub/datetime.h>
-#include <grub/dl.h>
+#ifndef GRUB_MACHINE_CONSOLE_HEADER
+#define GRUB_MACHINE_CONSOLE_HEADER	1
 
-GRUB_MOD_LICENSE ("GPLv3+");
+void grub_video_coreboot_fb_init (void);
+void grub_video_coreboot_fb_early_init (void);
+void grub_video_coreboot_fb_late_init (void);
+void grub_video_coreboot_fb_fini (void);
 
-/* No simple platform-independent RTC access exists in U-Boot. */
+extern struct grub_linuxbios_table_framebuffer *grub_video_coreboot_fbtable;
 
-grub_err_t
-grub_get_datetime (struct grub_datetime *datetime __attribute__ ((unused)))
-{
-  return grub_error (GRUB_ERR_INVALID_COMMAND,
-		     "can\'t get datetime using U-Boot");
-}
-
-grub_err_t
-grub_set_datetime (struct grub_datetime * datetime __attribute__ ((unused)))
-{
-  return grub_error (GRUB_ERR_INVALID_COMMAND,
-		     "can\'t set datetime using U-Boot");
-}
+#endif /* ! GRUB_MACHINE_CONSOLE_HEADER */

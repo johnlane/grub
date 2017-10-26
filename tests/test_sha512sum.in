@@ -1,4 +1,4 @@
-#! /bin/bash
+#! @BUILD_SHEBANG@
 
 # create a randome file
 file="`mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"`" || exit 1

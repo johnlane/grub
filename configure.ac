@@ -31,7 +31,7 @@ dnl (such as BUILD_CC, BUILD_CFLAGS, etc.) for the build type and variables
 dnl with the prefix "TARGET_" (such as TARGET_CC, TARGET_CFLAGS, etc.) are
 dnl used for the target type. See INSTALL for full list of variables.
 
-AC_INIT([GRUB],[2.02~rc1],[bug-grub@gnu.org])
+AC_INIT([GRUB],[2.03],[bug-grub@gnu.org])
 
 AC_CONFIG_AUX_DIR([build-aux])
 
@@ -167,6 +167,7 @@ case "$target_cpu"-"$platform" in
   mipsel-fuloong) platform=loongson ;;
   mipsel-loongson) ;;
   arm-uboot) ;;
+  arm-coreboot) ;;
   arm-efi) ;;
   arm64-efi) ;;
   *-emu) ;;
@@ -203,7 +204,8 @@ case "$host_os" in
 esac
 
 case "$host_os" in
-  cygwin | windows* | mingw32*)	have_exec=n ;;
+  cygwin) have_exec=y ;;
+  windows* | mingw32*) have_exec=n ;;
   aros*) have_exec=n ;;
   *) have_exec=y;;
 esac
@@ -373,7 +375,10 @@ case "$host_os" in
      ;;
   *)
      AC_CHECK_SIZEOF(off_t)
-     test x"$ac_cv_sizeof_off_t" = x8 || AC_MSG_ERROR([Large file support is required]);;
+     if test x"$ac_cv_sizeof_off_t" != x8 ; then
+       AC_CHECK_SIZEOF(off64_t)
+       test x"$ac_cv_sizeof_off64_t" = x8 || AC_MSG_ERROR([Large file support is required])
+     fi;;
 esac
 
 if test x$USE_NLS = xno; then
@@ -455,6 +460,16 @@ case "$build_os" in
   *)					BUILD_EXEEXT= ;;
 esac
 AC_SUBST(BUILD_EXEEXT)
+
+# In some build environments like termux /bin/sh is not a valid
+# shebang. Use $SHELL instead if it's executable and /bin/sh isn't
+BUILD_SHEBANG=/bin/sh
+for she in /bin/sh "$SHELL"; do
+  if test -x "$she" ; then
+    BUILD_SHEBANG="$she"
+  fi
+done
+AC_SUBST(BUILD_SHEBANG)
 
 # For gnulib.
 gl_INIT
@@ -1905,6 +1920,7 @@ AM_CONDITIONAL([COND_mipsel], [test x$target_cpu = xmipsel])
 AM_CONDITIONAL([COND_mipseb], [test x$target_cpu = xmips])
 AM_CONDITIONAL([COND_arm], [test x$target_cpu = xarm ])
 AM_CONDITIONAL([COND_arm_uboot], [test x$target_cpu = xarm -a x$platform = xuboot])
+AM_CONDITIONAL([COND_arm_coreboot], [test x$target_cpu = xarm -a x$platform = xcoreboot])
 AM_CONDITIONAL([COND_arm_efi], [test x$target_cpu = xarm -a x$platform = xefi])
 AM_CONDITIONAL([COND_arm64], [test x$target_cpu = xarm64 ])
 AM_CONDITIONAL([COND_arm64_efi], [test x$target_cpu = xarm64 -a x$platform = xefi])

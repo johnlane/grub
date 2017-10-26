@@ -18,12 +18,12 @@
 
 #include <grub/fdt.h>
 #include <grub/mm.h>
-#include <grub/cpu/fdtload.h>
 #include <grub/err.h>
 #include <grub/dl.h>
 #include <grub/command.h>
 #include <grub/file.h>
 #include <grub/efi/efi.h>
+#include <grub/efi/fdtload.h>
 
 static void *loaded_fdt;
 static void *fdt;
@@ -32,12 +32,12 @@ void *
 grub_fdt_load (grub_size_t additional_size)
 {
   void *raw_fdt;
-  grub_size_t size;
+  unsigned int size;
 
   if (fdt)
     {
       size = GRUB_EFI_BYTES_TO_PAGES (grub_fdt_get_totalsize (fdt));
-      grub_efi_free_pages ((grub_efi_physical_address_t) fdt, size);
+      grub_efi_free_pages ((grub_addr_t) fdt, size);
     }
 
   if (loaded_fdt)
@@ -49,8 +49,8 @@ grub_fdt_load (grub_size_t additional_size)
     raw_fdt ? grub_fdt_get_totalsize (raw_fdt) : GRUB_FDT_EMPTY_TREE_SZ;
   size += additional_size;
 
-  grub_dprintf ("linux", "allocating %ld bytes for fdt\n", size);
-  fdt = grub_efi_allocate_pages (0, GRUB_EFI_BYTES_TO_PAGES (size));
+  grub_dprintf ("linux", "allocating %d bytes for fdt\n", size);
+  fdt = grub_efi_allocate_any_pages (GRUB_EFI_BYTES_TO_PAGES (size));
   if (!fdt)
     return NULL;
 
@@ -88,7 +88,7 @@ grub_fdt_unload (void) {
   if (!fdt) {
     return;
   }
-  grub_efi_free_pages ((grub_efi_physical_address_t) fdt,
+  grub_efi_free_pages ((grub_addr_t) fdt,
 		       GRUB_EFI_BYTES_TO_PAGES (grub_fdt_get_totalsize (fdt)));
   fdt = NULL;
 }

@@ -49,38 +49,86 @@ static grub_efi_uintn_t finish_desc_size;
 static grub_efi_uint32_t finish_desc_version;
 int grub_efi_is_finished = 0;
 
+/*
+ * We need to roll back EFI allocations on exit. Remember allocations that
+ * we'll free on exit.
+ */
+struct efi_allocation;
+struct efi_allocation {
+	grub_efi_physical_address_t address;
+	grub_efi_uint64_t pages;
+	struct efi_allocation *next;
+};
+static struct efi_allocation *efi_allocated_memory;
+
+static void
+grub_efi_store_alloc (grub_efi_physical_address_t address,
+                         grub_efi_uintn_t pages)
+{
+  grub_efi_boot_services_t *b;
+  struct efi_allocation *alloc;
+  grub_efi_status_t status;
+
+  b = grub_efi_system_table->boot_services;
+  status = efi_call_3 (b->allocate_pool, GRUB_EFI_LOADER_DATA,
+                           sizeof(*alloc), (void**)&alloc);
+
+  if (status == GRUB_EFI_SUCCESS)
+    {
+      alloc->next = efi_allocated_memory;
+      alloc->address = address;
+      alloc->pages = pages;
+      efi_allocated_memory = alloc;
+    }
+  else
+      grub_printf ("Could not malloc memory to remember EFI allocation. "
+                   "Exiting GRUB won't free all memory.\n");
+}
+
+static void
+grub_efi_drop_alloc (grub_efi_physical_address_t address,
+                           grub_efi_uintn_t pages)
+{
+  struct efi_allocation *ea, *eap;
+  grub_efi_boot_services_t *b;
+
+  b = grub_efi_system_table->boot_services;
+
+  for (eap = NULL, ea = efi_allocated_memory; ea; eap = ea, ea = ea->next)
+    {
+      if (ea->address != address || ea->pages != pages)
+         continue;
+
+      /* Remove the current entry from the list. */
+      if (eap)
+        eap->next = ea->next;
+      else
+        efi_allocated_memory = ea->next;
+
+      /* Then free the memory backing it. */
+      efi_call_1 (b->free_pool, ea);
+
+      /* And leave, we're done. */
+      break;
+    }
+}
+
 /* Allocate pages. Return the pointer to the first of allocated pages.  */
 void *
-grub_efi_allocate_pages (grub_efi_physical_address_t address,
-			 grub_efi_uintn_t pages)
+grub_efi_allocate_pages_real (grub_efi_physical_address_t address,
+			      grub_efi_uintn_t pages,
+			      grub_efi_allocate_type_t alloctype,
+			      grub_efi_memory_type_t memtype)
 {
-  grub_efi_allocate_type_t type;
   grub_efi_status_t status;
   grub_efi_boot_services_t *b;
 
-#if 1
   /* Limit the memory access to less than 4GB for 32-bit platforms.  */
   if (address > GRUB_EFI_MAX_USABLE_ADDRESS)
     return 0;
-#endif
-
-#if 1
-  if (address == 0)
-    {
-      type = GRUB_EFI_ALLOCATE_MAX_ADDRESS;
-      address = GRUB_EFI_MAX_USABLE_ADDRESS;
-    }
-  else
-    type = GRUB_EFI_ALLOCATE_ADDRESS;
-#else
-  if (address == 0)
-    type = GRUB_EFI_ALLOCATE_ANY_PAGES;
-  else
-    type = GRUB_EFI_ALLOCATE_ADDRESS;
-#endif
 
   b = grub_efi_system_table->boot_services;
-  status = efi_call_4 (b->allocate_pages, type, GRUB_EFI_LOADER_DATA, pages, &address);
+  status = efi_call_4 (b->allocate_pages, alloctype, memtype, pages, &address);
   if (status != GRUB_EFI_SUCCESS)
     return 0;
 
@@ -89,13 +137,32 @@ grub_efi_allocate_pages (grub_efi_physical_address_t address,
       /* Uggh, the address 0 was allocated... This is too annoying,
 	 so reallocate another one.  */
       address = GRUB_EFI_MAX_USABLE_ADDRESS;
-      status = efi_call_4 (b->allocate_pages, type, GRUB_EFI_LOADER_DATA, pages, &address);
+      status = efi_call_4 (b->allocate_pages, alloctype, memtype, pages, &address);
       grub_efi_free_pages (0, pages);
       if (status != GRUB_EFI_SUCCESS)
 	return 0;
     }
 
+  grub_efi_store_alloc (address, pages);
+
   return (void *) ((grub_addr_t) address);
+}
+
+void *
+grub_efi_allocate_any_pages (grub_efi_uintn_t pages)
+{
+  return grub_efi_allocate_pages_real (GRUB_EFI_MAX_USABLE_ADDRESS,
+				       pages, GRUB_EFI_ALLOCATE_MAX_ADDRESS,
+				       GRUB_EFI_LOADER_DATA);
+}
+
+void *
+grub_efi_allocate_fixed (grub_efi_physical_address_t address,
+			 grub_efi_uintn_t pages)
+{
+  return grub_efi_allocate_pages_real (address, pages,
+				       GRUB_EFI_ALLOCATE_ADDRESS,
+				       GRUB_EFI_LOADER_DATA);
 }
 
 /* Free pages starting from ADDRESS.  */
@@ -107,6 +174,8 @@ grub_efi_free_pages (grub_efi_physical_address_t address,
 
   b = grub_efi_system_table->boot_services;
   efi_call_2 (b->free_pages, address, pages);
+
+  grub_efi_drop_alloc (address, pages);
 }
 
 #if defined (__i386__) || defined (__x86_64__)
@@ -402,7 +471,9 @@ add_memory_regions (grub_efi_memory_descriptor_t *memory_map,
 	  pages = required_pages;
 	}
 
-      addr = grub_efi_allocate_pages (start, pages);
+      addr = grub_efi_allocate_pages_real (start, pages,
+					   GRUB_EFI_ALLOCATE_ADDRESS,
+					   GRUB_EFI_LOADER_CODE);      
       if (! addr)
 	grub_fatal ("cannot allocate conventional memory %p with %u pages",
 		    (void *) ((grub_addr_t) start),
@@ -417,6 +488,20 @@ add_memory_regions (grub_efi_memory_descriptor_t *memory_map,
 
   if (required_pages > 0)
     grub_fatal ("too little memory");
+}
+
+void
+grub_efi_memory_fini (void)
+{
+  /*
+   * Free all stale allocations. grub_efi_free_pages() will remove
+   * the found entry from the list and it will always find the first
+   * list entry (efi_allocated_memory is the list start). Hence we
+   * remove all entries from the list until none is left altogether.
+   */
+  while (efi_allocated_memory)
+      grub_efi_free_pages (efi_allocated_memory->address,
+                           efi_allocated_memory->pages);
 }
 
 #if 0
@@ -454,8 +539,7 @@ grub_efi_mm_init (void)
   int mm_status;
 
   /* Prepare a memory region to store two memory maps.  */
-  memory_map = grub_efi_allocate_pages (0,
-					2 * BYTES_TO_PAGES (MEMORY_MAP_SIZE));
+  memory_map = grub_efi_allocate_any_pages (2 * BYTES_TO_PAGES (MEMORY_MAP_SIZE));
   if (! memory_map)
     grub_fatal ("cannot allocate memory");
 
@@ -473,7 +557,7 @@ grub_efi_mm_init (void)
       /* Freeing/allocating operations may increase memory map size.  */
       map_size += desc_size * 32;
 
-      memory_map = grub_efi_allocate_pages (0, 2 * BYTES_TO_PAGES (map_size));
+      memory_map = grub_efi_allocate_any_pages (2 * BYTES_TO_PAGES (map_size));
       if (! memory_map)
 	grub_fatal ("cannot allocate memory");
 

@@ -23,13 +23,11 @@
 #define KEYBOARD_COMMAND_ISREADY(x)	!((x) & 0x02)
 #define KEYBOARD_COMMAND_READ		0x20
 #define KEYBOARD_COMMAND_WRITE		0x60
+#define KEYBOARD_COMMAND_ENABLE		0xf4
 #define KEYBOARD_COMMAND_REBOOT		0xfe
 
 #define KEYBOARD_AT_TRANSLATE		0x40
-
-#define GRUB_AT_ACK                     0xfa
-#define GRUB_AT_NACK                    0xfe
-#define GRUB_AT_TRIES                   5
+#define KEYBOARD_AT_DISABLE		0x10
 
 #define KEYBOARD_ISMAKE(x)	!((x) & 0x80)
 #define KEYBOARD_ISREADY(x)	((x) & 0x01)

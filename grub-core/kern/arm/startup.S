@@ -24,6 +24,7 @@
  * GRUB is called from U-Boot as a Linux Kernel type image, which
  * means among other things that it always enters in ARM state.
  *
+ * coreboot starts in ARM mode as well.
  *
  * Overview of GRUB image layout:
  *
@@ -86,7 +87,7 @@ FUNCTION(codestart)
 	@ Stack pointer used as start address for signature probing
 	mov	r12, sp
 	adr	sp, entry_state
-	push	{r1-r12,lr}	@ store U-Boot context (sp in r12)
+	push	{r0-r12,lr}	@ store U-Boot context (sp in r12)
 
 	adr     r1, _start
 	ldr	r0, bss_start_ptr		@ src
@@ -127,6 +128,8 @@ reloc_done:
 
 	str     r1, EXT_C(grub_modbase)
 
+	/* Coreboot already places modules at right place.  */
+#ifndef GRUB_MACHINE_COREBOOT
 	add	r1, r1, r2
 	add	r0, r0, r2
 	sub     r1, r1, #4
@@ -136,6 +139,7 @@ reloc_done:
 	str	r3, [r1], #-4			@ *dst-- = r3 
 	subs	r2, #4				@ remaining -= 4
 	bne	1b				@ while remaining != 0
+#endif
 
 	@ Since we _are_ the C run-time, we need to manually zero the BSS
 	@ region before continuing
@@ -153,69 +157,21 @@ reloc_done:
 	
 	b	EXT_C(grub_main)
 
-	/*
-	 * uboot_syscall():
-	 *   This function is effectively a veneer, so it cannot
-	 *   modify the stack or corrupt any registers other than
-	 *   r12 (ip). Furthermore it needs to restore r8 for
-	 *   U-Boot (Global Data Pointer) and preserve it for Grub.
-	 */
-FUNCTION(grub_uboot_syscall)
-	str     r8, transition_space
-	str     lr, transition_space + 4
-	str     r9, transition_space + 8
-
-	ldr	r8, gd_backup
-	ldr	r9, gd_backup + 4
-
-	bl	do_syscall
-
-	ldr     r8, transition_space
-	ldr     lr, transition_space + 4
-	ldr     r9, transition_space + 8
-
-	bx	lr
-do_syscall:
-
-	ldr	ip, grub_uboot_syscall_ptr
-	bx	ip
-	
-FUNCTION(grub_uboot_return)
-	adr	sp, entry_state_end
-	pop	{r4-r12, lr}
-	mov	sp, r12
-	bx	lr
-
-	
 	.align	3
-@ U-boot context stack space
-entry_state_end:
-VARIABLE(grub_uboot_machine_type)
+@ U-boot/coreboot context stack space
+VARIABLE(grub_arm_saved_registers)
+	.long	0	@ r0
 	.long	0	@ r1
-VARIABLE(grub_uboot_boot_data)
 	.long	0	@ r2
 	.long	0	@ r3
 	.long	0	@ r4
 	.long	0	@ r5
 	.long	0	@ r6
 	.long	0	@ r7
-gd_backup:	
-	.long	0	@ r8 - U-Boot global data pointer up to 2013-09-21
-	.long	0	@ r9 - U-Boot global data pointer 2013-09-21 onwards
+	.long	0	@ r8
+	.long	0	@ r9
 	.long	0	@ r10
 	.long	0	@ r11
-VARIABLE(grub_uboot_search_hint)@ U-Boot stack pointer - 
-	.long	0	@ also API signature address hint.
+	.long	0	@ sp
 	.long	0	@ lr
-entry_state:		@ backup for U-Boot context
-
-@ GRUB context stack space
-transition_space:	
-	.long	0	@ r8
-	.long	0	@ lr
-	.long	0	@ r9
-
-VARIABLE(grub_uboot_syscall_ptr)
-	.long	0	@
-
-	END
+entry_state:

@@ -1,6 +1,6 @@
 /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2011  Free Software Foundation, Inc.
+ *  Copyright (C) 2013 Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,18 +16,29 @@
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <grub/efi/api.h>
-#include <grub/efi/efi.h>
-#include <grub/mm.h>
-#include <grub/misc.h>
-#include <grub/kernel.h>
-#include <grub/loader.h>
+#ifndef GRUB_KERNEL_MACHINE_HEADER
+#define GRUB_KERNEL_MACHINE_HEADER	1
 
-void
-grub_reboot (void)
+#ifndef ASM_FILE
+
+#include <grub/symbol.h>
+#include <grub/types.h>
+
+struct grub_fdt_board
 {
-  grub_machine_fini (GRUB_LOADER_FLAG_NORETURN);
-  efi_call_4 (grub_efi_system_table->runtime_services->reset_system,
-              GRUB_EFI_RESET_COLD, GRUB_EFI_SUCCESS, 0, NULL);
-  for (;;) ;
-}
+  const char *vendor, *part;
+  const grub_uint8_t *dtb;
+  grub_size_t dtb_size;
+};
+
+extern struct grub_fdt_board grub_fdt_boards[];
+void grub_machine_timer_init (void);
+void grub_pl050_init (void);
+void grub_cros_init (void);
+void grub_rk3288_spi_init (void);
+extern grub_addr_t EXPORT_VAR (start_of_ram);
+#endif /* ! ASM_FILE */
+
+#define GRUB_KERNEL_MACHINE_STACK_SIZE GRUB_KERNEL_ARM_STACK_SIZE
+
+#endif /* ! GRUB_KERNEL_MACHINE_HEADER */
