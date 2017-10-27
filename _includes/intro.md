@@ -115,6 +115,8 @@ This example opens a LUKS volume using a detached LUKS header.
     insmod luks
     cryptomount -k (hd0,1)/keyfile -O 30 -S 50 hd1,1
 
+<small>Read _[A GRUBby USB Stick](/grubby-usb.html)_ for supplementary information, including a way to create a USB boot stick to boot encrypted filesystems.</small>
+
 
 <div class="message" style="font-size:75%">
 GRUB is free software; you can redistribute it and/or modify it under the terms of the <a href="http://www.gnu.org/licenses/gpl.html">GNU General Public License</a> as published by the Free Software Foundation; either version 3 of the License, or (at your option) any later version.
