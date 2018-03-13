@@ -19,6 +19,7 @@
 
 #include <grub/ieee1275/ieee1275.h>
 #include <grub/types.h>
+#include <grub/misc.h>
 
 #define IEEE1275_PHANDLE_INVALID  ((grub_ieee1275_cell_t) -1)
 #define IEEE1275_IHANDLE_INVALID  ((grub_ieee1275_cell_t) 0)
@@ -483,6 +484,91 @@ grub_ieee1275_close (grub_ieee1275_ihandle_t ihandle)
 }
 
 int
+grub_ieee1275_decode_unit4 (grub_ieee1275_ihandle_t ihandle,
+                            void *addr, grub_size_t size,
+                            grub_uint32_t *phy_lo, grub_uint32_t *phy_hi,
+                            grub_uint32_t *lun_lo, grub_uint32_t *lun_hi)
+{
+  struct decode_args
+  {
+    struct grub_ieee1275_common_hdr common;
+    grub_ieee1275_cell_t method;
+    grub_ieee1275_cell_t ihandle;
+    grub_ieee1275_cell_t size;
+    grub_ieee1275_cell_t addr;
+    grub_ieee1275_cell_t catch_result;
+    grub_ieee1275_cell_t tgt_h;
+    grub_ieee1275_cell_t tgt_l;
+    grub_ieee1275_cell_t lun_h;
+    grub_ieee1275_cell_t lun_l;
+  }
+  args;
+
+  INIT_IEEE1275_COMMON (&args.common, "call-method", 4, 5);
+  args.method = (grub_ieee1275_cell_t) "decode-unit";
+  args.ihandle = ihandle;
+  args.size = size;
+  args.addr = (grub_ieee1275_cell_t) addr;
+  args.catch_result = 1;
+
+  if ((IEEE1275_CALL_ENTRY_FN (&args) == -1) || (args.catch_result))
+    {
+      grub_error (GRUB_ERR_OUT_OF_RANGE, "decode-unit failed\n");
+      return -1;
+    }
+
+  *phy_lo = args.tgt_l;
+  *phy_hi = args.tgt_h;
+  *lun_lo = args.lun_l;
+  *lun_hi = args.lun_h;
+  return 0;
+}
+
+char *
+grub_ieee1275_encode_uint4 (grub_ieee1275_ihandle_t ihandle,
+                            grub_uint32_t phy_lo, grub_uint32_t phy_hi,
+                            grub_uint32_t lun_lo, grub_uint32_t lun_hi,
+                            grub_size_t *size)
+{
+  char *addr;
+  struct encode_args
+  {
+    struct grub_ieee1275_common_hdr common;
+    grub_ieee1275_cell_t method;
+    grub_ieee1275_cell_t ihandle;
+    grub_ieee1275_cell_t tgt_h;
+    grub_ieee1275_cell_t tgt_l;
+    grub_ieee1275_cell_t lun_h;
+    grub_ieee1275_cell_t lun_l;
+    grub_ieee1275_cell_t catch_result;
+    grub_ieee1275_cell_t size;
+    grub_ieee1275_cell_t addr;
+  }
+  args;
+
+  INIT_IEEE1275_COMMON (&args.common, "call-method", 6, 3);
+  args.method = (grub_ieee1275_cell_t) "encode-unit";
+  args.ihandle = ihandle;
+
+  args.tgt_l = phy_lo;
+  args.tgt_h = phy_hi;
+  args.lun_l = lun_lo;
+  args.lun_h = lun_hi;
+  args.catch_result = 1;
+
+  if ((IEEE1275_CALL_ENTRY_FN (&args) == -1) || (args.catch_result))
+    {
+      grub_error (GRUB_ERR_OUT_OF_RANGE, "encode-unit failed\n");
+      return 0;
+    }
+
+  addr = (void *)args.addr;
+  *size = args.size;
+  addr = grub_strdup ((char *)args.addr);
+  return addr;
+}
+
+int
 grub_ieee1275_claim (grub_addr_t addr, grub_size_t size, unsigned int align,
 		     grub_addr_t *result)
 {
@@ -606,4 +692,118 @@ grub_ieee1275_milliseconds (grub_uint32_t *msecs)
     return -1;
   *msecs = args.msecs;
   return 0;
+}
+
+int
+grub_ieee1275_set_address (grub_ieee1275_ihandle_t ihandle,
+                           grub_uint32_t target, grub_uint32_t lun)
+{
+  struct set_address
+  {
+    struct grub_ieee1275_common_hdr common;
+    grub_ieee1275_cell_t method;
+    grub_ieee1275_cell_t ihandle;
+    grub_ieee1275_cell_t tgt;
+    grub_ieee1275_cell_t lun;
+    grub_ieee1275_cell_t catch_result;
+  }
+  args;
+
+  INIT_IEEE1275_COMMON (&args.common, "call-method", 4, 1);
+
+  /*
+   * IEEE 1275-1994 Standard for Boot (Initialization Configuration)
+   * Firmware: Core Requirements and Practices
+   * E.3.2.2 Bus-specific methods for bus nodes
+   *
+   * A package implementing the scsi-2 device type shall implement the
+   * following bus-specific method:
+   *
+   * set-address ( unit# target# -- )
+   * Sets the SCSI target number (0x0..0xf) and unit number (0..7) to which
+   * subsequent commands apply.
+   */
+  args.method = (grub_ieee1275_cell_t) "set-address";
+  args.ihandle = ihandle;
+  args.tgt = target;
+  args.lun = lun;
+
+  if (IEEE1275_CALL_ENTRY_FN (&args) == -1)
+    return -1;
+
+  return args.catch_result;
+}
+
+int
+grub_ieee1275_no_data_command (grub_ieee1275_ihandle_t ihandle,
+                               const void *cmd_addr, grub_ssize_t *result)
+{
+  struct set_address
+  {
+    struct grub_ieee1275_common_hdr common;
+    grub_ieee1275_cell_t method;
+    grub_ieee1275_cell_t ihandle;
+    grub_ieee1275_cell_t cmd_addr;
+    grub_ieee1275_cell_t error;
+    grub_ieee1275_cell_t catch_result;
+  }
+  args;
+
+  INIT_IEEE1275_COMMON (&args.common, "call-method", 3, 2);
+
+  /*
+   * IEEE 1275-1994 Standard for Boot (Initialization Configuration)
+   * Firmware: Core Requirements and Practices
+   *
+   * E.3.2.2 Bus-specific methods for bus nodes
+   *
+   * A package implementing the scsi-2 device type shall implement the
+   * following bus-specific method:
+   *
+   * no-data-command ( cmd-addr -- error? )
+   * Executes a simple SCSI command, automatically retrying under
+   * certain conditions.  cmd-addr is the address of a 6-byte command buffer
+   * containing an SCSI command that does not have a data transfer phase.
+   * Executes the command, retrying indefinitely with the same retry criteria
+   * as retry-command.
+   *
+   * error? is nonzero if an error occurred, zero otherwise.
+   * NOTE no-data-command is a convenience function. It provides
+   * no capabilities that are not present in retry-command, but for
+   * those commands that meet its restrictions, it is easier to use.
+   */
+  args.method = (grub_ieee1275_cell_t) "no-data-command";
+  args.ihandle = ihandle;
+  args.cmd_addr = (grub_ieee1275_cell_t) cmd_addr;
+
+  if (IEEE1275_CALL_ENTRY_FN (&args) == -1)
+    return -1;
+
+  if (result)
+    *result = args.error;
+
+  return args.catch_result;
+}
+
+int
+grub_ieee1275_get_block_size (grub_ieee1275_ihandle_t ihandle)
+{
+  struct size_args_ieee1275
+    {
+      struct grub_ieee1275_common_hdr common;
+      grub_ieee1275_cell_t method;
+      grub_ieee1275_cell_t ihandle;
+      grub_ieee1275_cell_t result;
+      grub_ieee1275_cell_t size;
+    } args;
+
+  INIT_IEEE1275_COMMON (&args.common, "call-method", 2, 2);
+  args.method = (grub_ieee1275_cell_t) "block-size";
+  args.ihandle = ihandle;
+  args.result = 1;
+
+  if ((IEEE1275_CALL_ENTRY_FN (&args) == -1) || (args.result))
+    return 0;
+
+  return args.size;
 }

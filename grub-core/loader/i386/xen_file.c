@@ -26,7 +26,7 @@ grub_elf_t
 grub_xen_file (grub_file_t file)
 {
   grub_elf_t elf;
-  struct linux_kernel_header lh;
+  struct linux_i386_kernel_header lh;
   grub_file_t off_file;
   grub_uint32_t payload_offset, payload_length;
   grub_uint8_t magic[6];
@@ -43,7 +43,7 @@ grub_xen_file (grub_file_t file)
     goto fail;
 
   if (lh.boot_flag != grub_cpu_to_le16_compile_time (0xaa55)
-      || lh.header != grub_cpu_to_le32_compile_time (GRUB_LINUX_MAGIC_SIGNATURE)
+      || lh.header != grub_cpu_to_le32_compile_time (GRUB_LINUX_I386_MAGIC_SIGNATURE)
       || grub_le_to_cpu16 (lh.version) < 0x0208)
     {
       grub_error (GRUB_ERR_BAD_OS, "version too old for xen boot");

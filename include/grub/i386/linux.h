@@ -16,10 +16,10 @@
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef GRUB_LINUX_MACHINE_HEADER
-#define GRUB_LINUX_MACHINE_HEADER	1
+#ifndef GRUB_I386_LINUX_HEADER
+#define GRUB_I386_LINUX_HEADER	1
 
-#define GRUB_LINUX_MAGIC_SIGNATURE	0x53726448      /* "HdrS" */
+#define GRUB_LINUX_I386_MAGIC_SIGNATURE	0x53726448      /* "HdrS" */
 #define GRUB_LINUX_DEFAULT_SETUP_SECTS	4
 #define GRUB_LINUX_INITRD_MAX_ADDRESS	0x37FFFFFF
 #define GRUB_LINUX_MAX_SETUP_SECTS	64
@@ -85,7 +85,7 @@ enum
   };
 
 /* For the Linux/i386 boot protocol version 2.10.  */
-struct linux_kernel_header
+struct linux_i386_kernel_header
 {
   grub_uint8_t code1[0x0020];
   grub_uint16_t cl_magic;		/* Magic number 0xA33F */
@@ -312,4 +312,4 @@ struct linux_kernel_params
 } GRUB_PACKED;
 #endif /* ! ASM_FILE */
 
-#endif /* ! GRUB_LINUX_MACHINE_HEADER */
+#endif /* ! GRUB_I386_LINUX_HEADER */

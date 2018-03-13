@@ -28,6 +28,7 @@
 #include <grub/cpu/linux.h>
 #include <grub/efi/efi.h>
 #include <grub/efi/fdtload.h>
+#include <grub/efi/memory.h>
 #include <grub/efi/pe32.h>
 #include <grub/i18n.h>
 #include <grub/lib/cmdline.h>
@@ -47,9 +48,9 @@ static grub_addr_t initrd_start;
 static grub_addr_t initrd_end;
 
 grub_err_t
-grub_arm64_uefi_check_image (struct grub_arm64_linux_kernel_header * lh)
+grub_arm64_uefi_check_image (struct linux_arm64_kernel_header * lh)
 {
-  if (lh->magic != GRUB_ARM64_LINUX_MAGIC)
+  if (lh->magic != GRUB_LINUX_ARM64_MAGIC_SIGNATURE)
     return grub_error(GRUB_ERR_BAD_OS, "invalid magic number");
 
   if ((lh->code0 & 0xffff) != GRUB_PE32_MAGIC)
@@ -248,7 +249,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
 		int argc, char *argv[])
 {
   grub_file_t file = 0;
-  struct grub_arm64_linux_kernel_header lh;
+  struct linux_arm64_kernel_header lh;
 
   grub_dl_ref (my_mod);
 

@@ -17,13 +17,22 @@
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef GRUB_LINUX_CPU_HEADER
-#define GRUB_LINUX_CPU_HEADER 1
-
-#define LINUX_ZIMAGE_OFFSET 0x24
-#define LINUX_ZIMAGE_MAGIC  0x016f2818
+#ifndef GRUB_ARM_LINUX_HEADER
+#define GRUB_ARM_LINUX_HEADER 1
 
 #include "system.h"
+
+#define GRUB_LINUX_ARM_MAGIC_SIGNATURE 0x016f2818
+
+struct linux_arm_kernel_header {
+  grub_uint32_t code0;
+  grub_uint32_t reserved1[8];
+  grub_uint32_t magic;
+  grub_uint32_t start; /* _start */
+  grub_uint32_t end;   /* _edata */
+  grub_uint32_t reserved2[4];
+  grub_uint32_t hdr_offset;
+};
 
 #if defined GRUB_MACHINE_UBOOT
 # include <grub/uboot/uboot.h>
@@ -34,7 +43,7 @@
 # define grub_arm_firmware_get_machine_type grub_uboot_get_machine_type
 #elif defined GRUB_MACHINE_EFI
 # include <grub/efi/efi.h>
-# include <grub/machine/loader.h>
+# include <grub/arm/efi/loader.h>
 /* On UEFI platforms - load the images at the lowest available address not
    less than *_PHYS_OFFSET from the first available memory location. */
 # define LINUX_PHYS_OFFSET        (0x00008000)
@@ -48,7 +57,7 @@ grub_arm_firmware_get_machine_type (void)
 }
 #elif defined (GRUB_MACHINE_COREBOOT)
 #include <grub/fdtbus.h>
-#include <grub/machine/kernel.h>
+#include <grub/arm/coreboot/kernel.h>
 # define LINUX_ADDRESS        (start_of_ram + 0x8000)
 # define LINUX_INITRD_ADDRESS (start_of_ram + 0x02000000)
 # define LINUX_FDT_ADDRESS    (LINUX_INITRD_ADDRESS - 0x10000)
@@ -66,4 +75,4 @@ grub_arm_firmware_get_machine_type (void)
 
 #define FDT_ADDITIONAL_ENTRIES_SIZE	0x300
 
-#endif /* ! GRUB_LINUX_CPU_HEADER */
+#endif /* ! GRUB_ARM_LINUX_HEADER */

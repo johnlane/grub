@@ -30,6 +30,7 @@
 #include <grub/cpu/linux.h>
 #include <grub/efi/efi.h>
 #include <grub/efi/fdtload.h>
+#include <grub/efi/memory.h>
 #include <grub/efi/pe32.h>	/* required by struct xen_hypervisor_header */
 #include <grub/i18n.h>
 #include <grub/lib/cmdline.h>
@@ -66,7 +67,7 @@ typedef enum module_type module_type_t;
 
 struct xen_hypervisor_header
 {
-  struct grub_arm64_linux_kernel_header efi_head;
+  struct linux_arm64_kernel_header efi_head;
 
   /* This is always PE\0\0.  */
   grub_uint8_t signature[GRUB_PE32_SIGNATURE_SIZE];
@@ -114,6 +115,17 @@ prepare_xen_hypervisor_params (void *xen_boot_fdt)
     chosen_node = grub_fdt_add_subnode (xen_boot_fdt, 0, "chosen");
   if (chosen_node < 1)
     return grub_error (GRUB_ERR_IO, "failed to get chosen node in FDT");
+
+  /*
+   * The address and size are always written using 64-bits value. Set
+   * #address-cells and #size-cells accordingly.
+   */
+  retval = grub_fdt_set_prop32 (xen_boot_fdt, chosen_node, "#address-cells", 2);
+  if (retval)
+    return grub_error (GRUB_ERR_IO, "failed to set #address-cells");
+  retval = grub_fdt_set_prop32 (xen_boot_fdt, chosen_node, "#size-cells", 2);
+  if (retval)
+    return grub_error (GRUB_ERR_IO, "failed to set #size-cells");
 
   grub_dprintf ("xen_loader",
 		"Xen Hypervisor cmdline : %s @ %p size:%d\n",
@@ -457,7 +469,7 @@ grub_cmd_xen_hypervisor (grub_command_t cmd __attribute__ ((unused)),
   if (grub_file_read (file, &sh, sizeof (sh)) != (long) sizeof (sh))
     goto fail;
   if (grub_arm64_uefi_check_image
-      ((struct grub_arm64_linux_kernel_header *) &sh) != GRUB_ERR_NONE)
+      ((struct linux_arm64_kernel_header *) &sh) != GRUB_ERR_NONE)
     goto fail;
   grub_file_seek (file, 0);
 
