@@ -1,11 +1,11 @@
 ---
 layout: post
 title: A GRUBby USB Stick
-date: 2015.11.05
+date: 2014-11-05 14:25:19
 categories: 
 permalink: grubby-usb.html
 ---
-This article describes a way to put GRUB onto a USB stick so that it can be used to boot a systems stored on other volumes. The same USB stick can be used as the boot drive for multiple systems in this way.
+This article describes a way to put GRUB onto a USB stick so that it can be used to boot encrypted filesystems stored on other volumes. The same USB stick can be used as the boot drive for multiple systems in this way.
 
 > **This hitherto unfinished work, originally a _note-to-self_ or _brain-dump_, is presented here in the hope that it may be of some use to those interested in my [Grub Crypt](/) Extension. Some detail may be incorrect, incomplete, irrelevant, out of date, or may only make sense to me. It is what it is, but it may be just what you need. Licensed as [CC BY_SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). Comments/Questions [welcome](https://github.com/johnlane/grub/issues). <small>© _2017.10.27 John Lane_</small>**
 
