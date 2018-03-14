@@ -1,0 +1,37 @@
+From f55d2bbac6ae60d9e641a095369701ab35b49208 Mon Sep 17 00:00:00 2001
+From: Denis Kasak <dkasak@termina.org.uk>
+Date: Mon, 3 Aug 2015 14:11:05 +0200
+Subject: [PATCH 6/7] Retain constness of parameters.
+
+---
+ grub-core/disk/cryptodisk.c | 2 +-
+ include/grub/cryptodisk.h   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/grub-core/disk/cryptodisk.c b/grub-core/disk/cryptodisk.c
+index c442d3a34..6fc2c23aa 100644
+--- a/grub-core/disk/cryptodisk.c
++++ b/grub-core/disk/cryptodisk.c
+@@ -115,7 +115,7 @@ gf_mul_be (grub_uint8_t *o, const grub_uint8_t *a, const grub_uint8_t *b)
+ }
+ 
+ int
+-grub_cryptodisk_uuidcmp(char *uuid_a, char *uuid_b)
++grub_cryptodisk_uuidcmp(const char *uuid_a, const char *uuid_b)
+ {
+   while ((*uuid_a != '\0') && (*uuid_b != '\0'))
+     {
+diff --git a/include/grub/cryptodisk.h b/include/grub/cryptodisk.h
+index 01c02696e..cd6a54582 100644
+--- a/include/grub/cryptodisk.h
++++ b/include/grub/cryptodisk.h
+@@ -169,5 +169,5 @@ grub_cryptodisk_t grub_cryptodisk_create (grub_disk_t disk, char *uuid,
+ 				   char *ciphername, char *ciphermode, char *digest);
+ 
+ int
+-grub_cryptodisk_uuidcmp(char *uuid_a, char *uuid_b);
++grub_cryptodisk_uuidcmp(const char *uuid_a, const char *uuid_b);
+ #endif
+-- 
+2.16.2
+

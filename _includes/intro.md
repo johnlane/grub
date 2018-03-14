@@ -31,10 +31,12 @@ Alternatively, check out [upstream](https://savannah.gnu.org/git/?group=grub) an
 * [0003-Cryptomount-luks-allow-multiple-passphrase-attempts.patch](/assets/0003-Cryptomount-luks-allow-multiple-passphrase-attempts.patch)
 * [0004-Cryptomount-support-plain-dm-crypt.patch](/assets/0004-Cryptomount-support-plain-dm-crypt.patch)
 * [0005-Cryptomount-support-for-hyphens-in-UUID.patch](/assets/0005-Cryptomount-support-for-hyphens-in-UUID.patch)
+* [0006-Retain-constness-of-parameters.patch](/assets/0006-Retain-constness-of-parameters.patch)
+* [0007-Add-support-for-using-a-whole-device-as-a-keyfile.patch](/assets/0007-Add-support-for-using-a-whole-device-as-a-keyfile.patch)
 
 Follow the build and install instructions in the upstream Grub [INSTALL](http://git.savannah.gnu.org/cgit/grub.git/tree/INSTALL) file.
 
-<small>Patches compatible with upstream HEAD ([afd0e534](http://git.savannah.gnu.org/cgit/grub.git/commit/?id=446794de8da4329ea532cbee4ca877bcafd0e534)) at time of writing, 2017/10/26</small>
+<small>Patches compatible with upstream HEAD ([28b0d190](http://git.savannah.gnu.org/cgit/grub.git/commit/?id=28b0d19061d66e3633148ac8e44decda914bf266)) at time of writing, 2018/03/14. Patches 6 and 7 are contributed [pull requests](https://github.com/johnlane/grub/pulls?q=is%3Apr+is%3Aclosed).</small>
 
 ### UUID availability
 
