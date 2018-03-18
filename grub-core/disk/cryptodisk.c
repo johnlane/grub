@@ -835,7 +835,7 @@ static int check_boot, have_it;
 static char *search_uuid;
 static grub_file_t hdr;
 static grub_uint8_t *key, keyfile_buffer[GRUB_CRYPTODISK_MAX_KEYFILE_SIZE];
-static grub_size_t keyfile_size;
+static grub_ssize_t keyfile_size;
 
 static void
 cryptodisk_close (grub_cryptodisk_t dev)
@@ -1045,7 +1045,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
               else
                 {
                   keyfile_size = grub_file_read (keyfile, keyfile_buffer, keyfile_size);
-                  if (keyfile_size == (grub_size_t)-1)
+                  if (keyfile_size <= 0)
                      grub_printf (N_("Error reading key file\n"));
                   else if (requested_keyfile_size && (keyfile_size != requested_keyfile_size))
                      grub_printf (N_("Cannot read %llu bytes for key file (read %llu bytes)\n"),
