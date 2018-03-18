@@ -907,7 +907,7 @@ grub_cryptodisk_cheat_mount (const char *sourcedev, const char *cheat)
 
   FOR_CRYPTODISK_DEVS (cr)
   {
-    dev = cr->scan (source, search_uuid, check_boot,0);
+    dev = cr->scan (source, search_uuid, check_boot, 0);
     if (grub_errno)
       return grub_errno;
     if (!dev)
@@ -1005,8 +1005,9 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 
   if (state[3].set) /* LUKS detached header */
     {
-      if (state[0].set) /* Cannot use UUID lookup with detached header */
-        return GRUB_ERR_BAD_ARGUMENT;
+      if (state[0].set)
+        return grub_error (GRUB_ERR_BAD_ARGUMENT,
+			     "UUID can not be used with detached header");
 
       hdr = grub_file_open (state[3].arg);
       if (!hdr)

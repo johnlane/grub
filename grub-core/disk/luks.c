@@ -248,7 +248,7 @@ luks_recover_key (grub_disk_t source,
           /* Read and decrypt the key material from the disk.  */
           if (hdr)
             {
-              grub_file_seek (hdr, sector * 512);
+              grub_file_seek (hdr, sector * GRUB_DISK_SECTOR_SIZE);
               if (grub_file_read (hdr, split_key, length) != (grub_ssize_t)length)
                 err = GRUB_ERR_READ_ERROR;
             }
