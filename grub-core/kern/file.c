@@ -28,8 +28,7 @@
 
 void (*EXPORT_VAR (grub_grubnet_fini)) (void);
 
-grub_file_filter_t grub_file_filters_all[GRUB_FILE_FILTER_MAX];
-grub_file_filter_t grub_file_filters_enabled[GRUB_FILE_FILTER_MAX];
+grub_file_filter_t grub_file_filters[GRUB_FILE_FILTER_MAX];
 
 /* Get the device part of the filename NAME. It is enclosed by parentheses.  */
 char *
@@ -59,7 +58,7 @@ grub_file_get_device_name (const char *name)
 }
 
 grub_file_t
-grub_file_open (const char *name)
+grub_file_open (const char *name, enum grub_file_type type)
 {
   grub_device_t device = 0;
   grub_file_t file = 0, last_file = 0;
@@ -108,24 +107,26 @@ grub_file_open (const char *name)
 	goto fail;
     }
 
-  if ((file->fs->open) (file, file_name) != GRUB_ERR_NONE)
+  if ((file->fs->fs_open) (file, file_name) != GRUB_ERR_NONE)
     goto fail;
 
   file->name = grub_strdup (name);
   grub_errno = GRUB_ERR_NONE;
 
-  for (filter = 0; file && filter < ARRAY_SIZE (grub_file_filters_enabled);
+  for (filter = 0; file && filter < ARRAY_SIZE (grub_file_filters);
        filter++)
-    if (grub_file_filters_enabled[filter])
+    if (grub_file_filters[filter])
       {
 	last_file = file;
-	file = grub_file_filters_enabled[filter] (file, name);
+	file = grub_file_filters[filter] (file, type);
+	if (file && file != last_file)
+	  {
+	    file->name = grub_strdup (name);
+	    grub_errno = GRUB_ERR_NONE;
+	  }
       }
   if (!file)
     grub_file_close (last_file);
-    
-  grub_memcpy (grub_file_filters_enabled, grub_file_filters_all,
-	       sizeof (grub_file_filters_enabled));
 
   return file;
 
@@ -136,9 +137,6 @@ grub_file_open (const char *name)
   /* if (net) grub_net_close (net);  */
 
   grub_free (file);
-
-  grub_memcpy (grub_file_filters_enabled, grub_file_filters_all,
-	       sizeof (grub_file_filters_enabled));
 
   return 0;
 }
@@ -179,7 +177,7 @@ grub_file_read (grub_file_t file, void *buf, grub_size_t len)
       file->read_hook_data = file;
       file->progress_offset = file->offset;
     }
-  res = (file->fs->read) (file, buf, len);
+  res = (file->fs->fs_read) (file, buf, len);
   file->read_hook = read_hook;
   file->read_hook_data = read_hook_data;
   if (res > 0)
@@ -191,8 +189,8 @@ grub_file_read (grub_file_t file, void *buf, grub_size_t len)
 grub_err_t
 grub_file_close (grub_file_t file)
 {
-  if (file->fs->close)
-    (file->fs->close) (file);
+  if (file->fs->fs_close)
+    (file->fs->fs_close) (file);
 
   if (file->device)
     grub_device_close (file->device);

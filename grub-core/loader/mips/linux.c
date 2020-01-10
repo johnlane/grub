@@ -237,7 +237,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   if (argc == 0)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
 
-  elf = grub_elf_open (argv[0]);
+  elf = grub_elf_open (argv[0], GRUB_FILE_TYPE_LINUX_KERNEL);
   if (! elf)
     return grub_errno;
 
@@ -314,7 +314,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
 
   grub_memcpy (params, LINUX_IMAGE, sizeof (LINUX_IMAGE));
   grub_create_loader_cmdline (argc, argv, params + sizeof (LINUX_IMAGE) - 1,
-			      size);
+			      size, GRUB_VERIFY_KERNEL_CMDLINE);
 #else
   linux_argv = extra;
   argv_off = (grub_uint8_t *) linux_argv - (grub_uint8_t *) playground;
@@ -326,6 +326,8 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
     + target_addr;
   linux_argv++;
   linux_args += ALIGN_UP (sizeof ("a0"), 4);
+
+  char *params = linux_args;
 
 #ifdef GRUB_MACHINE_MIPS_LOONGSON
   {
@@ -351,6 +353,12 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
       linux_argv++;
       linux_args += ALIGN_UP (grub_strlen (argv[i]) + 1, 4);
     }
+
+  *linux_args = '\0';
+
+  err = grub_verify_string (params, GRUB_VERIFY_KERNEL_CMDLINE);
+  if (err)
+    return err;
 
   /* Reserve space for rd arguments.  */
   rd_addr_arg_off = (grub_uint8_t *) linux_args - (grub_uint8_t *) playground;

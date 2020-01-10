@@ -407,11 +407,13 @@ CORRUPTED:
 }
 
 static grub_file_t
-grub_lzopio_open (grub_file_t io,
-		  const char *name __attribute__ ((unused)))
+grub_lzopio_open (grub_file_t io, enum grub_file_type type)
 {
   grub_file_t file;
   grub_lzopio_t lzopio;
+
+  if (type & GRUB_FILE_TYPE_NO_DECOMPRESS)
+    return io;
 
   file = (grub_file_t) grub_zalloc (sizeof (*file));
   if (!file)
@@ -529,11 +531,11 @@ grub_lzopio_close (grub_file_t file)
 
 static struct grub_fs grub_lzopio_fs = {
   .name = "lzopio",
-  .dir = 0,
-  .open = 0,
-  .read = grub_lzopio_read,
-  .close = grub_lzopio_close,
-  .label = 0,
+  .fs_dir = 0,
+  .fs_open = 0,
+  .fs_read = grub_lzopio_read,
+  .fs_close = grub_lzopio_close,
+  .fs_label = 0,
   .next = 0
 };
 

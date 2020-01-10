@@ -134,6 +134,7 @@ fi
 # Device containing our userland.  Typically used for root= parameter.
 GRUB_DEVICE="`${grub_probe} --target=device /`"
 GRUB_DEVICE_UUID="`${grub_probe} --device ${GRUB_DEVICE} --target=fs_uuid 2> /dev/null`" || true
+GRUB_DEVICE_PARTUUID="`${grub_probe} --device ${GRUB_DEVICE} --target=partuuid 2> /dev/null`" || true
 
 # Device containing our /boot partition.  Usually the same as GRUB_DEVICE.
 GRUB_DEVICE_BOOT="`${grub_probe} --target=device /boot`"
@@ -144,7 +145,13 @@ GRUB_DEVICE_BOOT_UUID="`${grub_probe} --device ${GRUB_DEVICE_BOOT} --target=fs_u
 GRUB_FS="`${grub_probe} --device ${GRUB_DEVICE} --target=fs 2> /dev/null || echo unknown`"
 
 if [ x"$GRUB_FS" = xunknown ]; then
-    GRUB_FS="$(stat -f --printf=%T / || echo unknown)"
+    GRUB_FS="$(stat -f -c %T / || echo unknown)"
+fi
+
+# Provide a default set of stock linux early initrd images.
+# Define here so the list can be modified in the sourced config file.
+if [ "x${GRUB_EARLY_INITRD_LINUX_STOCK}" = "x" ]; then
+	GRUB_EARLY_INITRD_LINUX_STOCK="intel-uc.img intel-ucode.img amd-uc.img amd-ucode.img early_ucode.cpio microcode.cpio"
 fi
 
 if test -f ${sysconfdir}/default/grub ; then
@@ -182,6 +189,7 @@ if [ "x${GRUB_ACTUAL_DEFAULT}" = "xsaved" ] ; then GRUB_ACTUAL_DEFAULT="`"${grub
 # override them.
 export GRUB_DEVICE \
   GRUB_DEVICE_UUID \
+  GRUB_DEVICE_PARTUUID \
   GRUB_DEVICE_BOOT \
   GRUB_DEVICE_BOOT_UUID \
   GRUB_FS \
@@ -211,10 +219,13 @@ export GRUB_DEFAULT \
   GRUB_CMDLINE_NETBSD \
   GRUB_CMDLINE_NETBSD_DEFAULT \
   GRUB_CMDLINE_GNUMACH \
+  GRUB_EARLY_INITRD_LINUX_CUSTOM \
+  GRUB_EARLY_INITRD_LINUX_STOCK \
   GRUB_TERMINAL_INPUT \
   GRUB_TERMINAL_OUTPUT \
   GRUB_SERIAL_COMMAND \
   GRUB_DISABLE_LINUX_UUID \
+  GRUB_DISABLE_LINUX_PARTUUID \
   GRUB_DISABLE_RECOVERY \
   GRUB_VIDEO_BACKEND \
   GRUB_GFXMODE \

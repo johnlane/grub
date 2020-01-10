@@ -139,7 +139,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
       goto fail;
     }
 
-  file = grub_file_open (argv[0]);
+  file = grub_file_open (argv[0], GRUB_FILE_TYPE_LINUX_KERNEL);
   if (! file)
     goto fail;
 
@@ -236,10 +236,6 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
 		(unsigned) real_size,
 		(unsigned) grub_linux16_prot_size);
 
-  relocator = grub_relocator_new ();
-  if (!relocator)
-    goto fail;
-
   for (i = 1; i < argc; i++)
     if (grub_memcmp (argv[i], "vga=", 4) == 0)
       {
@@ -299,6 +295,10 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
 	  }
       }
 
+  relocator = grub_relocator_new ();
+  if (!relocator)
+    goto fail;
+
   {
     grub_relocator_chunk_t ch;
     err = grub_relocator_alloc_chunk_addr (relocator, &ch,
@@ -334,11 +334,14 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   /* Create kernel command line.  */
   grub_memcpy ((char *)grub_linux_real_chunk + GRUB_LINUX_CL_OFFSET,
 		LINUX_IMAGE, sizeof (LINUX_IMAGE));
-  grub_create_loader_cmdline (argc, argv,
-			      (char *)grub_linux_real_chunk
-			      + GRUB_LINUX_CL_OFFSET + sizeof (LINUX_IMAGE) - 1,
-			      maximal_cmdline_size
-			      - (sizeof (LINUX_IMAGE) - 1));
+  err = grub_create_loader_cmdline (argc, argv,
+				    (char *)grub_linux_real_chunk
+				    + GRUB_LINUX_CL_OFFSET + sizeof (LINUX_IMAGE) - 1,
+				    maximal_cmdline_size
+				    - (sizeof (LINUX_IMAGE) - 1),
+				    GRUB_VERIFY_KERNEL_CMDLINE);
+  if (err)
+    goto fail;
 
   if (grub_linux_is_bzimage)
     grub_linux_prot_target = GRUB_LINUX_BZIMAGE_ADDR;
@@ -355,8 +358,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   }
 
   len = grub_linux16_prot_size;
-  if (grub_file_read (file, grub_linux_prot_chunk, grub_linux16_prot_size)
-      != (grub_ssize_t) grub_linux16_prot_size && !grub_errno)
+  if (grub_file_read (file, grub_linux_prot_chunk, len) != len && !grub_errno)
     grub_error (GRUB_ERR_BAD_OS, N_("premature end of file %s"),
 		argv[0]);
 

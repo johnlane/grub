@@ -28,6 +28,7 @@
 #include <grub/partition.h>
 #include <grub/msdos_partition.h>
 #include <grub/gpt_partition.h>
+#include <grub/i386/pc/boot.h>
 #include <grub/emu/hostdisk.h>
 #include <grub/emu/getroot.h>
 #include <grub/term.h>
@@ -62,6 +63,7 @@ enum {
   PRINT_DRIVE,
   PRINT_DEVICE,
   PRINT_PARTMAP,
+  PRINT_PARTUUID,
   PRINT_ABSTRACTION,
   PRINT_CRYPTODISK_UUID,
   PRINT_HINT_STR,
@@ -85,6 +87,7 @@ static const char *targets[] =
     [PRINT_DRIVE]              = "drive",
     [PRINT_DEVICE]             = "device",
     [PRINT_PARTMAP]            = "partmap",
+    [PRINT_PARTUUID]           = "partuuid",
     [PRINT_ABSTRACTION]        = "abstraction",
     [PRINT_CRYPTODISK_UUID]    = "cryptodisk_uuid",
     [PRINT_HINT_STR]           = "hints_string",
@@ -129,6 +132,20 @@ get_targets_string (void)
   return str;
 }
 
+static int
+print_gpt_guid (grub_gpt_part_guid_t guid)
+{
+  guid.data1 = grub_le_to_cpu32 (guid.data1);
+  guid.data2 = grub_le_to_cpu16 (guid.data2);
+  guid.data3 = grub_le_to_cpu16 (guid.data3);
+
+  return grub_printf ("%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+		      guid.data1, guid.data2, guid.data3, guid.data4[0],
+		      guid.data4[1], guid.data4[2], guid.data4[3],
+		      guid.data4[4], guid.data4[5], guid.data4[6],
+		      guid.data4[7]);
+}
+
 static void
 do_print (const char *x, void *data)
 {
@@ -154,9 +171,9 @@ probe_partmap (grub_disk_t disk, char delim)
     grub_diskfilter_get_partmap (disk, do_print, &delim);
 
   /* In case of LVM/RAID, check the member devices as well.  */
-  if (disk->dev->memberlist)
+  if (disk->dev->disk_memberlist)
     {
-      list = disk->dev->memberlist (disk);
+      list = disk->dev->disk_memberlist (disk);
     }
   while (list)
     {
@@ -168,14 +185,53 @@ probe_partmap (grub_disk_t disk, char delim)
 }
 
 static void
+probe_partuuid (grub_disk_t disk, char delim)
+{
+  grub_partition_t p = disk->partition;
+
+  /*
+   * Nested partitions not supported for now.
+   * Non-nested partitions must have disk->partition->parent == NULL
+   */
+  if (p && p->parent == NULL)
+    {
+      disk->partition = p->parent;
+
+      if (strcmp(p->partmap->name, "msdos") == 0)
+	{
+	    /*
+	     * The partition GUID for MSDOS is the partition number (starting
+	     * with 1) prepended with the NT disk signature.
+	     */
+	    grub_uint32_t nt_disk_sig;
+
+	    if (grub_disk_read (disk, 0, GRUB_BOOT_MACHINE_WINDOWS_NT_MAGIC,
+				sizeof(nt_disk_sig), &nt_disk_sig) == 0)
+	      grub_printf ("%08x-%02x",
+			   grub_le_to_cpu32(nt_disk_sig), 1 + p->number);
+	}
+      else if (strcmp(p->partmap->name, "gpt") == 0)
+	{
+	  struct grub_gpt_partentry gptdata;
+
+	  if (grub_disk_read (disk, p->offset, p->index,
+			      sizeof(gptdata), &gptdata) == 0)
+	    print_gpt_guid(gptdata.guid);
+	}
+
+      disk->partition = p;
+    }
+}
+
+static void
 probe_cryptodisk_uuid (grub_disk_t disk, char delim)
 {
   grub_disk_memberlist_t list = NULL, tmp;
 
   /* In case of LVM/RAID, check the member devices as well.  */
-  if (disk->dev->memberlist)
+  if (disk->dev->disk_memberlist)
     {
-      list = disk->dev->memberlist (disk);
+      list = disk->dev->disk_memberlist (disk);
     }
   while (list)
     {
@@ -216,8 +272,8 @@ probe_abstraction (grub_disk_t disk, char delim)
   grub_disk_memberlist_t list = NULL, tmp;
   int raid_level;
 
-  if (disk->dev->memberlist)
-    list = disk->dev->memberlist (disk);
+  if (disk->dev->disk_memberlist)
+    list = disk->dev->disk_memberlist (disk);
   while (list)
     {
       probe_abstraction (list->disk, delim);
@@ -243,8 +299,8 @@ probe_abstraction (grub_disk_t disk, char delim)
   if (raid_level >= 0)
     {
       printf ("diskfilter%c", delim);
-      if (disk->dev->raidname)
-	printf ("%s%c", disk->dev->raidname (disk), delim);
+      if (disk->dev->disk_raidname)
+	printf ("%s%c", disk->dev->disk_raidname (disk), delim);
     }
   if (raid_level == 5)
     printf ("raid5rec%c", delim);
@@ -390,10 +446,10 @@ probe (const char *path, char **device_names, char delim)
       else if (print == PRINT_FS_UUID)
 	{
 	  char *uuid;
-	  if (! fs->uuid)
+	  if (! fs->fs_uuid)
 	    grub_util_error (_("%s does not support UUIDs"), fs->name);
 
-	  if (fs->uuid (dev, &uuid) != GRUB_ERR_NONE)
+	  if (fs->fs_uuid (dev, &uuid) != GRUB_ERR_NONE)
 	    grub_util_error ("%s", grub_errmsg);
 
 	  printf ("%s", uuid);
@@ -402,11 +458,11 @@ probe (const char *path, char **device_names, char delim)
       else if (print == PRINT_FS_LABEL)
 	{
 	  char *label;
-	  if (! fs->label)
+	  if (! fs->fs_label)
 	    grub_util_error (_("filesystem `%s' does not support labels"),
 			     fs->name);
 
-	  if (fs->label (dev, &label) != GRUB_ERR_NONE)
+	  if (fs->fs_label (dev, &label) != GRUB_ERR_NONE)
 	    grub_util_error ("%s", grub_errmsg);
 
 	  printf ("%s", label);
@@ -621,6 +677,12 @@ probe (const char *path, char **device_names, char delim)
 	/* Check if dev->disk itself is contained in a partmap.  */
 	probe_partmap (dev->disk, delim);
 
+      else if (print == PRINT_PARTUUID)
+	{
+	  probe_partuuid (dev->disk, delim);
+	  putchar (delim);
+	}
+
       else if (print == PRINT_MSDOS_PARTTYPE)
 	{
 	  if (dev->disk->partition
@@ -641,21 +703,7 @@ probe (const char *path, char **device_names, char delim)
 
               if (grub_disk_read (dev->disk, p->offset, p->index,
                                   sizeof (gptdata), &gptdata) == 0)
-                {
-                  grub_gpt_part_type_t gpttype;
-                  gpttype.data1 = grub_le_to_cpu32 (gptdata.type.data1);
-                  gpttype.data2 = grub_le_to_cpu16 (gptdata.type.data2);
-                  gpttype.data3 = grub_le_to_cpu16 (gptdata.type.data3);
-                  grub_memcpy (gpttype.data4, gptdata.type.data4, 8);
-
-                  grub_printf ("%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-                               gpttype.data1, gpttype.data2,
-                               gpttype.data3, gpttype.data4[0], 
-                               gpttype.data4[1], gpttype.data4[2],
-                               gpttype.data4[3], gpttype.data4[4],
-                               gpttype.data4[5], gpttype.data4[6],
-                               gpttype.data4[7]);
-                }
+		print_gpt_guid(gptdata.type);
               dev->disk->partition = p;
             }
           putchar (delim);

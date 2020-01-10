@@ -237,7 +237,8 @@ union component64
   };
 };
 
-#if defined (__powerpc__) || defined (__arm__) || defined(__mips__)
+#if defined (__powerpc__) || defined (__arm__) || defined(__mips__) || \
+    (defined(__riscv) && (__riscv_xlen == 32))
 
 /* Based on libgcc2.c from gcc suite.  */
 grub_uint64_t
@@ -343,7 +344,8 @@ __ucmpdi2 (grub_uint64_t a, grub_uint64_t b)
 
 #endif
 
-#if defined (__powerpc__) || defined(__mips__) || defined(__sparc__) || defined(__arm__)
+#if defined (__powerpc__) || defined(__mips__) || defined(__sparc__) || \
+    defined(__arm__) || defined(__riscv)
 
 /* Based on libgcc2.c from gcc suite.  */
 grub_uint32_t
@@ -416,4 +418,47 @@ grub_uint64_t
 __aeabi_llsl (grub_uint64_t u, int b)
   __attribute__ ((alias ("__ashldi3")));
 
+#endif
+
+#if defined(__mips__) || defined(__riscv) || defined(__sparc__)
+/* Based on libgcc from gcc suite. */
+int
+__clzsi2 (grub_uint32_t val)
+{
+  int i = 32;
+  int j = 16;
+  int temp;
+
+  for (; j; j >>= 1)
+    {
+      if ((temp = val) >> j)
+        {
+          if (j == 1)
+            {
+              return (i - 2);
+            }
+          else
+            {
+              i -= j;
+              val = temp;
+            }
+        }
+    }
+  return (i - val);
+}
+#endif
+
+#if defined(__riscv) || defined(__sparc__)
+int
+__clzdi2 (grub_uint64_t val)
+{
+  if (val >> 32)
+    {
+      return __clzsi2 (val >> 32);
+    }
+  else
+    {
+      return __clzsi2 (val) + 32;
+    }
+}
 #endif

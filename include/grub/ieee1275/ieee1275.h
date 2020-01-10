@@ -146,6 +146,8 @@ enum grub_ieee1275_flag
   GRUB_IEEE1275_FLAG_BROKEN_REPEAT,
 
   GRUB_IEEE1275_FLAG_CURSORONOFF_ANSI_BROKEN,
+
+  GRUB_IEEE1275_FLAG_RAW_DEVNAMES,
 };
 
 extern int EXPORT_FUNC(grub_ieee1275_test_flag) (enum grub_ieee1275_flag flag);
@@ -252,6 +254,8 @@ int EXPORT_FUNC(grub_ieee1275_devalias_next) (struct grub_ieee1275_devalias *ali
 void EXPORT_FUNC(grub_ieee1275_children_peer) (struct grub_ieee1275_devalias *alias);
 void EXPORT_FUNC(grub_ieee1275_children_first) (const char *devpath,
 						struct grub_ieee1275_devalias *alias);
+
+char *EXPORT_FUNC(grub_ieee1275_get_boot_dev) (void);
 
 #define FOR_IEEE1275_DEVALIASES(alias) for (grub_ieee1275_devalias_init_iterator (&(alias)); grub_ieee1275_devalias_next (&(alias));)
 

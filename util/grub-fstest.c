@@ -120,9 +120,9 @@ read_file (char *pathname, int (*hook) (grub_off_t ofs, char *buf, int len, void
       return;
     }
 
-  if (uncompress == 0)
-    grub_file_filter_disable_compression ();
-  file = grub_file_open (pathname);
+  file = grub_file_open (pathname, ((uncompress == 0)
+				    ? GRUB_FILE_TYPE_NO_DECOMPRESS : GRUB_FILE_TYPE_NONE)
+			 | GRUB_FILE_TYPE_FSTEST);
   if (!file)
     {
       grub_util_error (_("cannot open `%s': %s"), pathname,
@@ -470,9 +470,9 @@ fstest (int n)
 	fs = grub_fs_probe (dev);
 	if (!fs)
 	  grub_util_error ("%s", grub_errmsg);
-	if (!fs->uuid)
+	if (!fs->fs_uuid)
 	  grub_util_error ("%s", _("couldn't retrieve UUID"));
-	if (fs->uuid (dev, &uuid))
+	if (fs->fs_uuid (dev, &uuid))
 	  grub_util_error ("%s", grub_errmsg);
 	if (!uuid)
 	  grub_util_error ("%s", _("couldn't retrieve UUID"));

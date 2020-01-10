@@ -46,7 +46,7 @@ grub_get_tsc (void)
   grub_cpuid (0,a,b,c,d);
   /* Read TSC value.  We cannot use "=A", since this would use
      %rax on x86_64. */
-  __asm__ __volatile__ ("rdtsc":"=a" (lo), "=d" (hi));
+  asm volatile ("rdtsc":"=a" (lo), "=d" (hi));
 
   return (((grub_uint64_t) hi) << 32) | lo;
 }
@@ -54,7 +54,7 @@ grub_get_tsc (void)
 static __inline int
 grub_cpu_is_tsc_supported (void)
 {
-#ifndef GRUB_MACHINE_XEN
+#if !defined(GRUB_MACHINE_XEN) && !defined(GRUB_MACHINE_XEN_PVH)
   grub_uint32_t a,b,c,d;
   if (! grub_cpu_is_cpuid_supported ())
     return 0;

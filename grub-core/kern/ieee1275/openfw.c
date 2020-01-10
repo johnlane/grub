@@ -479,6 +479,9 @@ grub_ieee1275_encode_devname (const char *path)
   char *optr;
   const char *iptr;
 
+  if (! device)
+    return 0;
+
   encoding = grub_malloc (sizeof ("ieee1275/") + 2 * grub_strlen (device)
 			  + sizeof (",XXXXXXXXXXXX"));
   if (!encoding)
@@ -561,3 +564,30 @@ grub_ieee1275_canonicalise_devname (const char *path)
   return NULL;
 }
 
+char *
+grub_ieee1275_get_boot_dev (void)
+{
+  char *bootpath;
+  grub_ssize_t bootpath_size;
+
+  if (grub_ieee1275_get_property_length (grub_ieee1275_chosen, "bootpath",
+					 &bootpath_size)
+      || bootpath_size <= 0)
+    {
+      /* Should never happen. */
+      grub_printf ("/chosen/bootpath property missing!\n");
+      return NULL;
+    }
+
+  bootpath = (char *) grub_malloc ((grub_size_t) bootpath_size + 64);
+  if (! bootpath)
+    {
+      grub_print_error ();
+      return NULL;
+    }
+  grub_ieee1275_get_property (grub_ieee1275_chosen, "bootpath", bootpath,
+                              (grub_size_t) bootpath_size + 1, 0);
+  bootpath[bootpath_size] = '\0';
+
+  return bootpath;
+}

@@ -34,32 +34,23 @@ struct linux_arm_kernel_header {
   grub_uint32_t hdr_offset;
 };
 
+#if defined(__arm__)
+# define GRUB_LINUX_ARMXX_MAGIC_SIGNATURE GRUB_LINUX_ARM_MAGIC_SIGNATURE
+# define linux_arch_kernel_header linux_arm_kernel_header
+#endif
+
 #if defined GRUB_MACHINE_UBOOT
 # include <grub/uboot/uboot.h>
 # define LINUX_ADDRESS        (start_of_ram + 0x8000)
-# define LINUX_INITRD_ADDRESS (start_of_ram + 0x02000000)
+# define LINUX_INITRD_ADDRESS (start_of_ram + 0x03000000)
 # define LINUX_FDT_ADDRESS    (LINUX_INITRD_ADDRESS - 0x10000)
 # define grub_arm_firmware_get_boot_data grub_uboot_get_boot_data
 # define grub_arm_firmware_get_machine_type grub_uboot_get_machine_type
-#elif defined GRUB_MACHINE_EFI
-# include <grub/efi/efi.h>
-# include <grub/arm/efi/loader.h>
-/* On UEFI platforms - load the images at the lowest available address not
-   less than *_PHYS_OFFSET from the first available memory location. */
-# define LINUX_PHYS_OFFSET        (0x00008000)
-# define LINUX_INITRD_PHYS_OFFSET (LINUX_PHYS_OFFSET + 0x02000000)
-# define LINUX_FDT_PHYS_OFFSET    (LINUX_INITRD_PHYS_OFFSET - 0x10000)
-# define grub_arm_firmware_get_boot_data (grub_addr_t)grub_efi_get_firmware_fdt
-static inline grub_uint32_t
-grub_arm_firmware_get_machine_type (void)
-{
-  return GRUB_ARM_MACHINE_TYPE_FDT;
-}
 #elif defined (GRUB_MACHINE_COREBOOT)
 #include <grub/fdtbus.h>
 #include <grub/arm/coreboot/kernel.h>
 # define LINUX_ADDRESS        (start_of_ram + 0x8000)
-# define LINUX_INITRD_ADDRESS (start_of_ram + 0x02000000)
+# define LINUX_INITRD_ADDRESS (start_of_ram + 0x03000000)
 # define LINUX_FDT_ADDRESS    (LINUX_INITRD_ADDRESS - 0x10000)
 static inline const void *
 grub_arm_firmware_get_boot_data (void)
@@ -72,7 +63,5 @@ grub_arm_firmware_get_machine_type (void)
   return GRUB_ARM_MACHINE_TYPE_FDT;
 }
 #endif
-
-#define FDT_ADDITIONAL_ENTRIES_SIZE	0x300
 
 #endif /* ! GRUB_ARM_LINUX_HEADER */

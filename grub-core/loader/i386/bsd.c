@@ -35,6 +35,7 @@
 #include <grub/ns8250.h>
 #include <grub/bsdlabel.h>
 #include <grub/crypto.h>
+#include <grub/verify.h>
 #ifdef GRUB_MACHINE_PCBIOS
 #include <grub/machine/int.h>
 #endif
@@ -416,6 +417,8 @@ grub_freebsd_add_meta_module (const char *filename, const char *type,
 			      grub_addr_t addr, grub_uint32_t size)
 {
   const char *name;
+  grub_err_t err;
+
   name = grub_strrchr (filename, '/');
   if (name)
     name++;
@@ -469,6 +472,9 @@ grub_freebsd_add_meta_module (const char *filename, const char *type,
 	      *(p++) = ' ';
 	    }
 	  *p = 0;
+	  err = grub_verify_string (cmdline, GRUB_VERIFY_MODULE_CMDLINE);
+	  if (err)
+	    return err;
 	}
     }
 
@@ -574,9 +580,9 @@ freebsd_get_zfs (void)
   fs = grub_fs_probe (dev);
   if (!fs)
     return;
-  if (!fs->uuid || grub_strcmp (fs->name, "zfs") != 0)
+  if (!fs->fs_uuid || grub_strcmp (fs->name, "zfs") != 0)
     return;
-  err = fs->uuid (dev, &uuid);
+  err = fs->fs_uuid (dev, &uuid);
   if (err)
     return;
   if (!uuid)
@@ -1457,7 +1463,7 @@ grub_bsd_load (int argc, char *argv[])
       goto fail;
     }
 
-  file = grub_file_open (argv[0]);
+  file = grub_file_open (argv[0], GRUB_FILE_TYPE_BSD_KERNEL);
   if (!file)
     goto fail;
 
@@ -1534,7 +1540,7 @@ grub_cmd_freebsd (grub_extcmd_context_t ctxt, int argc, char *argv[])
 	  if (err)
 	    return err;
 
-	  file = grub_file_open (argv[0]);
+	  file = grub_file_open (argv[0], GRUB_FILE_TYPE_BSD_KERNEL);
 	  if (! file)
 	    return grub_errno;
 
@@ -1693,7 +1699,7 @@ grub_cmd_netbsd (grub_extcmd_context_t ctxt, int argc, char *argv[])
 	{
 	  grub_file_t file;
 
-	  file = grub_file_open (argv[0]);
+	  file = grub_file_open (argv[0], GRUB_FILE_TYPE_BSD_KERNEL);
 	  if (! file)
 	    return grub_errno;
 
@@ -1802,7 +1808,7 @@ grub_cmd_freebsd_loadenv (grub_command_t cmd __attribute__ ((unused)),
       goto fail;
     }
 
-  file = grub_file_open (argv[0]);
+  file = grub_file_open (argv[0], GRUB_FILE_TYPE_FREEBSD_ENV);
   if ((!file) || (!file->size))
     goto fail;
 
@@ -1907,7 +1913,7 @@ grub_cmd_freebsd_module (grub_command_t cmd __attribute__ ((unused)),
       return 0;
     }
 
-  file = grub_file_open (argv[0]);
+  file = grub_file_open (argv[0], GRUB_FILE_TYPE_FREEBSD_MODULE);
   if ((!file) || (!file->size))
     goto fail;
 
@@ -1958,7 +1964,7 @@ grub_netbsd_module_load (char *filename, grub_uint32_t type)
   void *src;
   grub_err_t err;
 
-  file = grub_file_open (filename);
+  file = grub_file_open (filename, GRUB_FILE_TYPE_NETBSD_MODULE);
   if ((!file) || (!file->size))
     goto fail;
 
@@ -2048,7 +2054,7 @@ grub_cmd_freebsd_module_elf (grub_command_t cmd __attribute__ ((unused)),
       return 0;
     }
 
-  file = grub_file_open (argv[0]);
+  file = grub_file_open (argv[0], GRUB_FILE_TYPE_FREEBSD_MODULE_ELF);
   if (!file)
     return grub_errno;
   if (!file->size)
@@ -2088,7 +2094,7 @@ grub_cmd_openbsd_ramdisk (grub_command_t cmd __attribute__ ((unused)),
   if (!openbsd_ramdisk.max_size)
     return grub_error (GRUB_ERR_BAD_OS, "your kOpenBSD doesn't support ramdisk");
 
-  file = grub_file_open (args[0]);
+  file = grub_file_open (args[0], GRUB_FILE_TYPE_OPENBSD_RAMDISK);
   if (! file)
     return grub_errno;
 

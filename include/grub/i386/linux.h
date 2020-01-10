@@ -43,6 +43,12 @@
 
 #define GRUB_LINUX_CL_MAGIC		0xA33F
 
+#define VIDEO_CAPABILITY_SKIP_QUIRKS	(1 << 0)
+#define VIDEO_CAPABILITY_64BIT_BASE	(1 << 1)	/* Frame buffer base is 64-bit. */
+
+/* Maximum number of MBR signatures to store. */
+#define EDD_MBR_SIG_MAX			16
+
 #ifdef __x86_64__
 
 #define GRUB_LINUX_EFI_SIGNATURE	\
@@ -139,6 +145,7 @@ struct linux_i386_kernel_header
   grub_uint64_t setup_data;
   grub_uint64_t pref_address;
   grub_uint32_t init_size;
+  grub_uint32_t handover_offset;
 } GRUB_PACKED;
 
 /* Boot parameters for Linux based on 2.6.12. This is used by the setup
@@ -188,8 +195,9 @@ struct linux_kernel_params
   grub_uint16_t lfb_pages;		/* 32 */
   grub_uint16_t vesa_attrib;		/* 34 */
   grub_uint32_t capabilities;		/* 36 */
+  grub_uint32_t ext_lfb_base;		/* 3a */
 
-  grub_uint8_t padding3[0x40 - 0x3a];
+  grub_uint8_t padding3[0x40 - 0x3e];
 
   grub_uint16_t apm_version;		/* 40 */
   grub_uint16_t apm_code_segment;	/* 42 */
@@ -206,8 +214,9 @@ struct linux_kernel_params
   grub_uint32_t ist_command;		/* 64 */
   grub_uint32_t ist_event;		/* 68 */
   grub_uint32_t ist_perf_level;		/* 6c */
+  grub_uint64_t acpi_rsdp_addr;		/* 70 */
 
-  grub_uint8_t padding5[0x80 - 0x70];
+  grub_uint8_t padding5[0x80 - 0x78];
 
   grub_uint8_t hd0_drive_info[0x10];	/* 80 */
   grub_uint8_t hd1_drive_info[0x10];	/* 90 */
@@ -268,6 +277,7 @@ struct linux_kernel_params
 
   grub_uint8_t padding9[0x1f1 - 0x1e9];
 
+  /* Linux setup header copy - BEGIN. */
   grub_uint8_t setup_sects;		/* The size of the setup in sectors */
   grub_uint16_t root_flags;		/* If the root is mounted readonly */
   grub_uint16_t syssize;		/* obsolete */
@@ -306,9 +316,14 @@ struct linux_kernel_params
   grub_uint32_t payload_offset;
   grub_uint32_t payload_length;
   grub_uint64_t setup_data;
-  grub_uint8_t pad2[120];		/* 258 */
-  struct grub_e820_mmap e820_map[(0x400 - 0x2d0) / 20];	/* 2d0 */
+  grub_uint64_t pref_address;
+  grub_uint32_t init_size;
+  grub_uint32_t handover_offset;
+  /* Linux setup header copy - END. */
 
+  grub_uint8_t _pad7[40];
+  grub_uint32_t edd_mbr_sig_buffer[EDD_MBR_SIG_MAX];	/* 290 */
+  struct grub_e820_mmap e820_map[(0x400 - 0x2d0) / 20];	/* 2d0 */
 } GRUB_PACKED;
 #endif /* ! ASM_FILE */
 

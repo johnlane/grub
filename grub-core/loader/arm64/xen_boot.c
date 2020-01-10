@@ -265,9 +265,9 @@ xen_boot (void)
   if (err)
     return err;
 
-  return grub_arm64_uefi_boot_image (xen_hypervisor->start,
-				     xen_hypervisor->size,
-				     xen_hypervisor->cmdline);
+  return grub_arch_efi_linux_boot_image (xen_hypervisor->start,
+					  xen_hypervisor->size,
+					  xen_hypervisor->cmdline);
 }
 
 static void
@@ -368,7 +368,8 @@ xen_boot_binary_load (struct xen_boot_binary *binary, grub_file_t file,
 	  return;
 	}
       grub_create_loader_cmdline (argc - 1, argv + 1, binary->cmdline,
-				  binary->cmdline_size);
+				  binary->cmdline_size,
+				  GRUB_VERIFY_KERNEL_CMDLINE);
       grub_dprintf ("xen_loader",
 		    "Xen_boot cmdline @ %p %s, size: %d\n",
 		    binary->cmdline, binary->cmdline, binary->cmdline_size);
@@ -428,9 +429,9 @@ grub_cmd_xen_module (grub_command_t cmd __attribute__((unused)),
 
   grub_dprintf ("xen_loader", "Init module and node info\n");
 
-  if (nounzip)
-    grub_file_filter_disable_compression ();
-  file = grub_file_open (argv[0]);
+  file = grub_file_open (argv[0], GRUB_FILE_TYPE_XEN_MODULE
+			 | (nounzip ? GRUB_FILE_TYPE_NO_DECOMPRESS
+			    : GRUB_FILE_TYPE_NONE));
   if (!file)
     goto fail;
 
@@ -462,14 +463,14 @@ grub_cmd_xen_hypervisor (grub_command_t cmd __attribute__ ((unused)),
       goto fail;
     }
 
-  file = grub_file_open (argv[0]);
+  file = grub_file_open (argv[0], GRUB_FILE_TYPE_XEN_HYPERVISOR);
   if (!file)
     goto fail;
 
   if (grub_file_read (file, &sh, sizeof (sh)) != (long) sizeof (sh))
     goto fail;
-  if (grub_arm64_uefi_check_image
-      ((struct linux_arm64_kernel_header *) &sh) != GRUB_ERR_NONE)
+  if (grub_arch_efi_linux_check_image
+      ((struct linux_arch_kernel_header *) &sh) != GRUB_ERR_NONE)
     goto fail;
   grub_file_seek (file, 0);
 

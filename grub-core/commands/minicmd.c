@@ -43,7 +43,7 @@ grub_mini_cmd_cat (struct grub_command *cmd __attribute__ ((unused)),
   if (argc < 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
 
-  file = grub_file_open (argv[0]);
+  file = grub_file_open (argv[0], GRUB_FILE_TYPE_CAT);
   if (! file)
     return grub_errno;
 
@@ -136,6 +136,9 @@ grub_mini_cmd_rmmod (struct grub_command *cmd __attribute__ ((unused)),
   mod = grub_dl_get (argv[0]);
   if (! mod)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "no such module");
+
+  if (grub_dl_is_persistent (mod))
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, "cannot unload persistent module");
 
   if (grub_dl_unref (mod) <= 0)
     grub_dl_unload (mod);

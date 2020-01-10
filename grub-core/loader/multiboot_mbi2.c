@@ -407,42 +407,6 @@ acpiv2_size (void)
 
 static grub_efi_uintn_t efi_mmap_size = 0;
 
-/* Find the optimal number of pages for the memory map. Is it better to
-   move this code to efi/mm.c?  */
-static void
-find_efi_mmap_size (void)
-{
-  efi_mmap_size = (1 << 12);
-  while (1)
-    {
-      int ret;
-      grub_efi_memory_descriptor_t *mmap;
-      grub_efi_uintn_t desc_size;
-      grub_efi_uintn_t cur_mmap_size = efi_mmap_size;
-
-      mmap = grub_malloc (cur_mmap_size);
-      if (! mmap)
-	return;
-
-      ret = grub_efi_get_memory_map (&cur_mmap_size, mmap, 0, &desc_size, 0);
-      grub_free (mmap);
-
-      if (ret < 0)
-	return;
-      else if (ret > 0)
-	break;
-
-      if (efi_mmap_size < cur_mmap_size)
-	efi_mmap_size = cur_mmap_size;
-      efi_mmap_size += (1 << 12);
-    }
-
-  /* Increase the size a bit for safety, because GRUB allocates more on
-     later, and EFI itself may allocate more.  */
-  efi_mmap_size += (3 << 12);
-
-  efi_mmap_size = ALIGN_UP (efi_mmap_size, 4096);
-}
 #endif
 
 static grub_size_t
@@ -463,7 +427,7 @@ grub_multiboot2_get_mbi_size (void)
 {
 #ifdef GRUB_MACHINE_EFI
   if (!keep_bs && !efi_mmap_size)
-    find_efi_mmap_size ();    
+    efi_mmap_size = grub_efi_find_mmap_size ();
 #endif
   return 2 * sizeof (grub_uint32_t) + sizeof (struct multiboot_tag)
     + sizeof (struct multiboot_tag)
@@ -1074,10 +1038,8 @@ grub_multiboot2_init_mbi (int argc, char *argv[])
     return grub_errno;
   cmdline_size = len;
 
-  grub_create_loader_cmdline (argc, argv, cmdline,
-			      cmdline_size);
-
-  return GRUB_ERR_NONE;
+  return grub_create_loader_cmdline (argc, argv, cmdline, cmdline_size,
+				     GRUB_VERIFY_KERNEL_CMDLINE);
 }
 
 grub_err_t
@@ -1086,6 +1048,7 @@ grub_multiboot2_add_module (grub_addr_t start, grub_size_t size,
 {
   struct module *newmod;
   grub_size_t len = 0;
+  grub_err_t err;
 
   newmod = grub_malloc (sizeof (*newmod));
   if (!newmod)
@@ -1104,8 +1067,10 @@ grub_multiboot2_add_module (grub_addr_t start, grub_size_t size,
   newmod->cmdline_size = len;
   total_modcmd += ALIGN_UP (len, MULTIBOOT_TAG_ALIGN);
 
-  grub_create_loader_cmdline (argc, argv, newmod->cmdline,
-			      newmod->cmdline_size);
+  err = grub_create_loader_cmdline (argc, argv, newmod->cmdline,
+				    newmod->cmdline_size, GRUB_VERIFY_MODULE_CMDLINE);
+  if (err)
+    return err;
 
   if (modules_last)
     modules_last->next = newmod;

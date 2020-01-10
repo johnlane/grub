@@ -696,7 +696,7 @@ syslinux_parse_real (struct syslinux_menu *menu)
   char *buf = NULL;
   grub_err_t err = GRUB_ERR_NONE;
 
-  file = grub_file_open (menu->filename);
+  file = grub_file_open (menu->filename, GRUB_FILE_TYPE_CONFIG);
   if (!file)
     return grub_errno;
   while ((grub_free (buf), buf = grub_file_getline (file)))
@@ -807,6 +807,10 @@ print_file (struct output_buffer *outbuf,
   return print_escaped (outbuf, from, to);
 }
 
+/*
+ * Makefile.am mimics this when generating tests/syslinux/ubuntu10.04_grub.cfg,
+ * so changes here may need to be reflected there too.
+ */
 static void
 simplify_filename (char *str)
 {

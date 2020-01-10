@@ -79,9 +79,18 @@ GRUB_MOD_LICENSE ("GPLv3+");
 #define XFS_SB_FEAT_INCOMPAT_SPINODES   (1 << 1)        /* sparse inode chunks */
 #define XFS_SB_FEAT_INCOMPAT_META_UUID  (1 << 2)        /* metadata UUID */
 
-/* We do not currently verify metadata UUID so it is safe to read such filesystem */
+/*
+ * Directory entries with ftype are explicitly handled by GRUB code.
+ *
+ * We do not currently read the inode btrees, so it is safe to read filesystems
+ * with the XFS_SB_FEAT_INCOMPAT_SPINODES feature.
+ *
+ * We do not currently verify metadata UUID, so it is safe to read filesystems
+ * with the XFS_SB_FEAT_INCOMPAT_META_UUID feature.
+ */
 #define XFS_SB_FEAT_INCOMPAT_SUPPORTED \
 	(XFS_SB_FEAT_INCOMPAT_FTYPE | \
+	 XFS_SB_FEAT_INCOMPAT_SPINODES | \
 	 XFS_SB_FEAT_INCOMPAT_META_UUID)
 
 struct grub_xfs_sblock
@@ -1128,12 +1137,12 @@ grub_xfs_uuid (grub_device_t device, char **uuid)
 static struct grub_fs grub_xfs_fs =
   {
     .name = "xfs",
-    .dir = grub_xfs_dir,
-    .open = grub_xfs_open,
-    .read = grub_xfs_read,
-    .close = grub_xfs_close,
-    .label = grub_xfs_label,
-    .uuid = grub_xfs_uuid,
+    .fs_dir = grub_xfs_dir,
+    .fs_open = grub_xfs_open,
+    .fs_read = grub_xfs_read,
+    .fs_close = grub_xfs_close,
+    .fs_label = grub_xfs_label,
+    .fs_uuid = grub_xfs_uuid,
 #ifdef GRUB_UTIL
     .reserved_first_sector = 0,
     .blocklist_install = 1,
