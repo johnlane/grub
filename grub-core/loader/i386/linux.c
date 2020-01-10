@@ -35,6 +35,7 @@
 #include <grub/i18n.h>
 #include <grub/lib/cmdline.h>
 #include <grub/linux.h>
+#include <grub/machine/kernel.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -100,55 +101,6 @@ page_align (grub_size_t size)
 {
   return (size + (1 << 12) - 1) & (~((1 << 12) - 1));
 }
-
-#ifdef GRUB_MACHINE_EFI
-/* Find the optimal number of pages for the memory map. Is it better to
-   move this code to efi/mm.c?  */
-static grub_efi_uintn_t
-find_efi_mmap_size (void)
-{
-  static grub_efi_uintn_t mmap_size = 0;
-
-  if (mmap_size != 0)
-    return mmap_size;
-
-  mmap_size = (1 << 12);
-  while (1)
-    {
-      int ret;
-      grub_efi_memory_descriptor_t *mmap;
-      grub_efi_uintn_t desc_size;
-      grub_efi_uintn_t cur_mmap_size = mmap_size;
-
-      mmap = grub_malloc (cur_mmap_size);
-      if (! mmap)
-	return 0;
-
-      ret = grub_efi_get_memory_map (&cur_mmap_size, mmap, 0, &desc_size, 0);
-      grub_free (mmap);
-
-      if (ret < 0)
-	{
-	  grub_error (GRUB_ERR_IO, "cannot get memory map");
-	  return 0;
-	}
-      else if (ret > 0)
-	break;
-
-      if (mmap_size < cur_mmap_size)
-	mmap_size = cur_mmap_size;
-      mmap_size += (1 << 12);
-    }
-
-  /* Increase the size a bit for safety, because GRUB allocates more on
-     later, and EFI itself may allocate more.  */
-  mmap_size += (3 << 12);
-
-  mmap_size = page_align (mmap_size);
-  return mmap_size;
-}
-
-#endif
 
 /* Helper for find_mmap_size.  */
 static int
@@ -306,6 +258,12 @@ grub_linux_setup_video (struct linux_kernel_params *params)
   params->lfb_line_len = mode_info.pitch;
 
   params->lfb_base = (grub_size_t) framebuffer;
+
+#if defined (GRUB_MACHINE_EFI) && defined (__x86_64__)
+  params->ext_lfb_base = (grub_size_t) (((grub_uint64_t)(grub_size_t) framebuffer) >> 32);
+  params->capabilities |= VIDEO_CAPABILITY_64BIT_BASE;
+#endif
+
   params->lfb_size = ALIGN_UP (params->lfb_line_len * params->lfb_height, 65536);
 
   params->red_mask_size = mode_info.red_mask_size;
@@ -551,6 +509,10 @@ grub_linux_boot (void)
 	}
     }
 
+#ifdef GRUB_KERNEL_USE_RSDP_ADDR
+  linux_params.acpi_rsdp_addr = grub_le_to_cpu64 (grub_rsdp_addr);
+#endif
+
   mmap_size = find_mmap_size ();
   /* Make sure that each size is aligned to a page boundary.  */
   cl_offset = ALIGN_UP (mmap_size + sizeof (linux_params), 4096);
@@ -560,7 +522,7 @@ grub_linux_boot (void)
   ctx.real_size = ALIGN_UP (cl_offset + maximal_cmdline_size, 4096);
 
 #ifdef GRUB_MACHINE_EFI
-  efi_mmap_size = find_efi_mmap_size ();
+  efi_mmap_size = grub_efi_find_mmap_size ();
   if (efi_mmap_size == 0)
     return grub_errno;
 #endif
@@ -695,7 +657,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
       goto fail;
     }
 
-  file = grub_file_open (argv[0]);
+  file = grub_file_open (argv[0], GRUB_FILE_TYPE_LINUX_KERNEL);
   if (! file)
     goto fail;
 
@@ -805,7 +767,21 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   linux_params.kernel_alignment = (1 << align);
   linux_params.ps_mouse = linux_params.padding10 =  0;
 
-  len = sizeof (linux_params) - sizeof (lh);
+  /*
+   * The Linux 32-bit boot protocol defines the setup header end
+   * to be at 0x202 + the byte value at 0x201.
+   */
+  len = 0x202 + *((char *) &linux_params.jump + 1);
+
+  /* Verify the struct is big enough so we do not write past the end. */
+  if (len > (char *) &linux_params.edd_mbr_sig_buffer - (char *) &linux_params) {
+    grub_error (GRUB_ERR_BAD_OS, "Linux setup header too big");
+    goto fail;
+  }
+
+  /* We've already read lh so there is no need to read it second time. */
+  len -= sizeof(lh);
+
   if (grub_file_read (file, (char *) &linux_params + sizeof (lh), len) != len)
     {
       if (!grub_errno)
@@ -1012,11 +988,17 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   if (!linux_cmdline)
     goto fail;
   grub_memcpy (linux_cmdline, LINUX_IMAGE, sizeof (LINUX_IMAGE));
-  grub_create_loader_cmdline (argc, argv,
-			      linux_cmdline
-			      + sizeof (LINUX_IMAGE) - 1,
-			      maximal_cmdline_size
-			      - (sizeof (LINUX_IMAGE) - 1));
+  {
+    grub_err_t err;
+    err = grub_create_loader_cmdline (argc, argv,
+				      linux_cmdline
+				      + sizeof (LINUX_IMAGE) - 1,
+				      maximal_cmdline_size
+				      - (sizeof (LINUX_IMAGE) - 1),
+				      GRUB_VERIFY_KERNEL_CMDLINE);
+    if (err)
+      goto fail;
+  }
 
   len = prot_file_size;
   if (grub_file_read (file, prot_mode_mem, len) != len && !grub_errno)

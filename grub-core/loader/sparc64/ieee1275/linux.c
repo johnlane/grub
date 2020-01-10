@@ -306,7 +306,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
       goto out;
     }
 
-  file = grub_file_open (argv[0]);
+  file = grub_file_open (argv[0], GRUB_FILE_TYPE_LINUX_KERNEL);
   if (!file)
     goto out;
 
@@ -340,8 +340,9 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
 
   /* Create kernel command line.  */
   grub_memcpy (linux_args, LINUX_IMAGE, sizeof (LINUX_IMAGE));
-  grub_create_loader_cmdline (argc, argv, linux_args + sizeof (LINUX_IMAGE) - 1,
-			      size);
+  if (grub_create_loader_cmdline (argc, argv, linux_args + sizeof (LINUX_IMAGE) - 1,
+				  size, GRUB_VERIFY_KERNEL_CMDLINE))
+    goto out;
 
 out:
   if (elf)

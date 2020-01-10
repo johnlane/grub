@@ -81,8 +81,8 @@ iterate_device (const char *name, void *data)
       if (! buf)
 	return 1;
 
-      grub_file_filter_disable_compression ();
-      file = grub_file_open (buf);
+      file = grub_file_open (buf, GRUB_FILE_TYPE_FS_SEARCH
+			     | GRUB_FILE_TYPE_NO_DECOMPRESS);
       if (file)
 	{
 	  found = 1;
@@ -103,9 +103,9 @@ iterate_device (const char *name, void *data)
 	  fs = grub_fs_probe (dev);
 
 #ifdef DO_SEARCH_FS_UUID
-#define read_fn uuid
+#define read_fn fs_uuid
 #else
-#define read_fn label
+#define read_fn fs_label
 #endif
 
 	  if (fs && fs->read_fn)

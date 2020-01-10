@@ -77,6 +77,7 @@ This edition documents version @value{VERSION}.
 * Coding style::
 * Finding your way around::
 * Contributing Changes::
+* Updating External Code::
 * Porting::
 * Error Handling::
 * Stack and heap size::
@@ -84,6 +85,7 @@ This edition documents version @value{VERSION}.
 * Video Subsystem::
 * PFF2 Font File Format::
 * Graphical Menu Software Design::
+* Verifiers framework::
 * Copying This Manual::         Copying This Manual
 * Index::
 @end menu
@@ -181,38 +183,44 @@ If a macro is global, its name must be prefixed with GRUB_ and must consist of o
 @section Comments
 
 All comments shall be C-style comments, of the form @samp{/* @dots{} */}.
-
-Comments shall be placed only on a line by themselves.  They shall not be placed together with code, variable declarations, or other non-comment entities.  A comment should be placed immediately preceding the entity it describes.
+A comment can be placed immediately preceding the entity it describes or it
+can be placed together with code, variable declarations, or other non-comment
+entities. However, it is recommended to not mix various forms especially in
+types/structs descriptions.
 
 Acceptable:
 @example
-/* The page # that is the front buffer.  */
+/* The page # that is the front buffer. */
 int displayed_page;
-/* The page # that is the back buffer.  */
-int render_page;
 @end example
 
-Unacceptable:
 @example
-int displayed_page;           /* The page # that is the front buffer. */
-int render_page;              /* The page # that is the back buffer. */
+int render_page; /* The page # that is the back buffer. */
 @end example
 
 @node Multi-Line Comments
 @section Multi-Line Comments
 
-Comments spanning multiple lines shall be formatted with all lines after the first aligned with the first line.  
-
-Asterisk characters should not be repeated a the start of each subsequent line.
+Comments spanning multiple lines shall be formatted with all lines after the
+first aligned with the first line. Asterisk characters should be repeated at
+the start of each subsequent line.
 
 Acceptable:
 @example
-/* This is a comment
-   which spans multiple lines.
-   It is long.  */
+/*
+ * This is a comment
+ * which spans multiple lines.
+ * It is long.
+ */
 @end example
 
 Unacceptable:
+@example
+/* This is a comment
+   which spans multiple lines.
+   It is long. */
+@end example
+
 @example
 /*
  * This is a comment
@@ -220,7 +228,16 @@ Unacceptable:
  * It is long. */
 @end example
 
-The opening @samp{/*} and closing @samp{*/} should be placed together on a line with text.
+@example
+/* This is a comment
+ * which spans multiple lines.
+ * It is long.
+ */
+@end example
+
+In particular first unacceptable form makes comment difficult to distinguish
+from the code itself. Especially if it contains the code snippets and/or is
+long. So, its usage is disallowed.
 
 @node Finding your way around
 @chapter Finding your way around
@@ -465,6 +482,69 @@ If your intention is to just get started, please do not submit a inclusion
 request. Instead, please subscribe to the mailing list, and communicate first
 (e.g. sending a patch, asking a question, commenting on another message...).
 
+@node Updating External Code
+@chapter Updating external code
+
+GRUB includes some code from other projects, and it is sometimes necessary
+to update it.
+
+@menu
+* Gnulib::
+@end menu
+
+@node Gnulib
+@section Gnulib
+
+Gnulib is a source code library that provides basic functionality to
+programs and libraries.  Many software packages make use of Gnulib
+to avoid reinventing the portability wheel.
+
+GRUB imports Gnulib using its @command{bootstrap} utility, identifying a
+particular Git commit in @file{bootstrap.conf}.  To upgrade to a new Gnulib
+commit, set @code{GNULIB_REVISION} in @file{bootstrap.conf} to the new commit
+ID, then run @kbd{./bootstrap} and whatever else you need to make sure it
+works.  Check for changes to Gnulib's @file{NEWS} file between the old and new
+commits; in some cases it will be necessary to adjust GRUB to match.  You may
+also need to update the patches in @file{grub-core/lib/gnulib-patches/}.
+
+To add a new Gnulib module or remove one that is no longer needed, change
+@code{gnulib_modules} in @file{bootstrap.conf}.  Again, run @kbd{./bootstrap}
+and whatever else you need to make sure it works.
+
+Bootstrapping from an older distribution containing gettext version < 0.18.3,
+will require a patch similar to this to be applied first before running the
+@command{./bootstrap} utility:
+
+@example
+diff --git a/bootstrap.conf b/bootstrap.conf
+index 988dda0..a3193a9 100644
+--- a/bootstrap.conf
++++ b/bootstrap.conf
+@@ -67,7 +67,7 @@ SKIP_PO=t
+buildreq="\
+autoconf   2.63
+automake   1.11
+-gettext    0.18.3
++gettext    0.17
+git        1.5.5
+tar        -
+"
+diff --git a/configure.ac b/configure.ac
+index 08b518f..99f5b36 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -362,7 +362,7 @@ AC_CHECK_PROG(HAVE_CXX, $CXX, yes, no)
+
+AC_GNU_SOURCE
+AM_GNU_GETTEXT([external])
+-AM_GNU_GETTEXT_VERSION([0.18.3])
++AM_GNU_GETTEXT_VERSION([0.17])
+AC_SYS_LARGEFILE
+
+# Identify characteristics of the host architecture.
+
+@end example
+
 @node Porting
 @chapter Porting
 
@@ -671,7 +751,7 @@ is already present and you'll need to make it follow the existant code paths
 for your platform adding adjustments if necessary. When done compile:
 
 @example
-./autogen.sh
+./bootstrap
 ./configure --target=$cpu --with-platform=$platform TARGET_CC=.. OBJCOPY=... STRIP=...
 make > /dev/null
 @end example
@@ -1948,6 +2028,63 @@ graphics mode.  It's possible that making @code{grub_video_restore()} return to
 the graphics mode that was in use before @code{grub_video_setup()} was called
 might fix some of the problems.
 
+
+@node Verifiers framework
+@chapter Verifiers framework
+
+To register your own verifier call @samp{grub_verifier_register} with a structure
+pointing to your functions.
+
+The interface is inspired by the hash interface with @samp{init}/@samp{write}/@samp{fini}.
+
+There are essentially 2 ways of using it, hashing and whole-file verification.
+
+With the hashing approach:
+During @samp{init} you decide whether you want to check the given file and init context.
+In @samp{write} you update your hashing state.
+In @samp{fini} you check that the hash matches the expected value/passes some check/...
+
+With whole-file verification:
+During @samp{init} you decide whether you want to check the given file and init context.
+In @samp{write} you verify the file and return an error if it fails.
+You don't have @samp{fini}.
+
+Additional @samp{verify_string} receives various strings like kernel parameters
+to verify. Returning no error means successful verification and an error stops
+the current action.
+
+Detailed description of the API:
+
+Every time a file is opened your @samp{init} function is called with file descriptor
+and file type. Your function can have the following outcomes:
+
+@itemize
+
+@item returning no error and setting @samp{*flags} to @samp{GRUB_VERIFY_FLAGS_DEFER_AUTH}.
+In this case verification is deferred to other active verifiers. Verification
+fails if nobody cares or selected verifier fails.
+
+@item returning no error and setting @samp{*flags} to @samp{GRUB_VERIFY_FLAGS_SKIP_VERIFICATION}.
+In this case your verifier will not be called anymore and it is assumed to have
+skipped verification.
+
+@item returning no error and not setting @samp{*flags} to @samp{GRUB_VERIFY_FLAGS_SKIP_VERIFICATION}
+In this case verification is done as described in the following section.
+
+@item returning an error. Then opening of the file will fail due to failed verification.
+
+@end itemize
+
+In the third case your @samp{write} will be called with chunks of the file. If
+you need the whole file in a single chunk then during @samp{init} set the bit
+@samp{GRUB_VERIFY_FLAGS_SINGLE_CHUNK} in @samp{*flags}. During @samp{init} you
+may set @samp{*context} if you need additional context. At every iteration you
+may return an error and the file will be considered as having failed the
+verification. If you return no error then verification continues.
+
+Optionally at the end of the file @samp{fini}, if it exists, is called with just
+the context. If you return no error during any of @samp{init}, @samp{write} and
+@samp{fini} then the file is considered as having succeded verification.
 
 @node Copying This Manual
 @appendix Copying This Manual

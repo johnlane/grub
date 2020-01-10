@@ -133,15 +133,15 @@ get_fileinfo (char *path, struct test_parse_ctx *ctx)
 
       /* Fetch writing time. */
       ctx->file_info.mtimeset = 0;
-      if (fs->mtime)
+      if (fs->fs_mtime)
 	{
-	  if (! fs->mtime (dev, &ctx->file_info.mtime))
+	  if (! fs->fs_mtime (dev, &ctx->file_info.mtime))
 	    ctx->file_info.mtimeset = 1;
 	  grub_errno = GRUB_ERR_NONE;
 	}
     }
   else
-    (fs->dir) (dev, path, find_file, ctx);
+    (fs->fs_dir) (dev, path, find_file, ctx);
 
   grub_device_close (dev);
   grub_free (path);
@@ -355,8 +355,8 @@ test_parse (char **args, int *argn, int argc)
 	  if (grub_strcmp (args[*argn], "-s") == 0)
 	    {
 	      grub_file_t file;
-	      grub_file_filter_disable_compression ();
-	      file = grub_file_open (args[*argn + 1]);
+	      file = grub_file_open (args[*argn + 1], GRUB_FILE_TYPE_GET_SIZE
+				     | GRUB_FILE_TYPE_NO_DECOMPRESS);
 	      update_val (file && (grub_file_size (file) != 0), &ctx);
 	      if (file)
 		grub_file_close (file);

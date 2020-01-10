@@ -538,6 +538,8 @@ main (int argc, char *argv[])
 	  || source_dirs[GRUB_INSTALL_PLATFORM_IA64_EFI]
 	  || source_dirs[GRUB_INSTALL_PLATFORM_ARM_EFI]
 	  || source_dirs[GRUB_INSTALL_PLATFORM_ARM64_EFI]
+	  || source_dirs[GRUB_INSTALL_PLATFORM_RISCV32_EFI]
+	  || source_dirs[GRUB_INSTALL_PLATFORM_RISCV64_EFI]
 	  || source_dirs[GRUB_INSTALL_PLATFORM_X86_64_EFI])
 	system_area = SYS_AREA_COMMON;
       else if (source_dirs[GRUB_INSTALL_PLATFORM_SPARC64_IEEE1275])
@@ -735,7 +737,9 @@ main (int argc, char *argv[])
       || source_dirs[GRUB_INSTALL_PLATFORM_X86_64_EFI]
       || source_dirs[GRUB_INSTALL_PLATFORM_IA64_EFI]
       || source_dirs[GRUB_INSTALL_PLATFORM_ARM_EFI]
-      || source_dirs[GRUB_INSTALL_PLATFORM_ARM64_EFI])
+      || source_dirs[GRUB_INSTALL_PLATFORM_ARM64_EFI]
+      || source_dirs[GRUB_INSTALL_PLATFORM_RISCV32_EFI]
+      || source_dirs[GRUB_INSTALL_PLATFORM_RISCV64_EFI])
     {
       char *efidir = grub_util_make_temporary_dir ();
       char *efidir_efi = grub_util_path_concat (2, efidir, "efi");
@@ -770,6 +774,16 @@ main (int argc, char *argv[])
 			     imgname);
       free (imgname);
 
+      imgname = grub_util_path_concat (2, efidir_efi_boot, "bootriscv32.efi");
+      make_image_fwdisk_abs (GRUB_INSTALL_PLATFORM_RISCV32_EFI, "riscv32-efi",
+			     imgname);
+      free (imgname);
+
+      imgname = grub_util_path_concat (2, efidir_efi_boot, "bootriscv64.efi");
+      make_image_fwdisk_abs (GRUB_INSTALL_PLATFORM_RISCV64_EFI, "riscv64-efi",
+			     imgname);
+      free (imgname);
+
       if (source_dirs[GRUB_INSTALL_PLATFORM_I386_EFI])
 	{
 	  imgname = grub_util_path_concat (2, efidir_efi_boot, "boot.efi");
@@ -801,7 +815,7 @@ main (int argc, char *argv[])
 	grub_util_error ("`%s` invocation failed\n", "mformat");
       rv = grub_util_exec ((const char * []) { "mcopy", "-s", "-i", efiimgfat, efidir_efi, "::/", NULL });
       if (rv != 0)
-	grub_util_error ("`%s` invocation failed\n", "mformat");
+	grub_util_error ("`%s` invocation failed\n", "mcopy");
       xorriso_push ("--efi-boot");
       xorriso_push ("efi.img");
       xorriso_push ("-efi-boot-part");

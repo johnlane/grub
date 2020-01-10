@@ -1156,10 +1156,13 @@ initialize_tables (grub_gzio_t gzio)
    even if IO does not contain data compressed by gzip, return a valid file
    object. Note that this function won't close IO, even if an error occurs.  */
 static grub_file_t
-grub_gzio_open (grub_file_t io, const char *name __attribute__ ((unused)))
+grub_gzio_open (grub_file_t io, enum grub_file_type type)
 {
   grub_file_t file;
   grub_gzio_t gzio = 0;
+
+  if (type & GRUB_FILE_TYPE_NO_DECOMPRESS)
+    return io;
 
   file = (grub_file_t) grub_zalloc (sizeof (*file));
   if (! file)
@@ -1386,11 +1389,11 @@ grub_deflate_decompress (char *inbuf, grub_size_t insize, grub_off_t off,
 static struct grub_fs grub_gzio_fs =
   {
     .name = "gzio",
-    .dir = 0,
-    .open = 0,
-    .read = grub_gzio_read,
-    .close = grub_gzio_close,
-    .label = 0,
+    .fs_dir = 0,
+    .fs_open = 0,
+    .fs_read = grub_gzio_read,
+    .fs_close = grub_gzio_close,
+    .fs_label = 0,
     .next = 0
   };
 

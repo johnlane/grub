@@ -27,6 +27,8 @@
 #include <grub/elf.h>
 #include <grub/xen_file.h>
 #include <grub/efi/pe32.h>
+#include <grub/arm/linux.h>
+#include <grub/arm64/linux.h>
 #include <grub/i386/linux.h>
 #include <grub/xnu.h>
 #include <grub/machoload.h>
@@ -88,6 +90,10 @@ static const struct grub_arg_option options[] = {
    N_("Check if FILE is ARM64 EFI file"), 0, 0},
   {"is-arm-efi", 0, 0,
    N_("Check if FILE is ARM EFI file"), 0, 0},
+  {"is-riscv32-efi", 0, 0,
+   N_("Check if FILE is RISC-V 32bit EFI file"), 0, 0},
+  {"is-riscv64-efi", 0, 0,
+   N_("Check if FILE is RISC-V 64bit EFI file"), 0, 0},
   {"is-hibernated-hiberfil", 0, 0,
    N_("Check if FILE is hiberfil.sys in hibernated state"), 0, 0},
   {"is-x86_64-xnu", 0, 0,
@@ -128,6 +134,7 @@ enum
   IS_IA_EFI,
   IS_ARM64_EFI,
   IS_ARM_EFI,
+  IS_RISCV_EFI,
   IS_HIBERNATED,
   IS_XNU64,
   IS_XNU32,
@@ -163,7 +170,7 @@ grub_cmd_file (grub_extcmd_context_t ctxt, int argc, char **args)
   if (type == -1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "no type specified");
 
-  file = grub_file_open (args[0]);
+  file = grub_file_open (args[0], GRUB_FILE_TYPE_XNU_KERNEL);
   if (!file)
     return grub_errno;
   switch (type)
@@ -383,21 +390,19 @@ grub_cmd_file (grub_extcmd_context_t ctxt, int argc, char **args)
       }
     case IS_ARM_LINUX:
       {
-	grub_uint32_t sig, sig_pi;
-	if (grub_file_read (file, &sig_pi, 4) != 4)
+	struct linux_arm_kernel_header lh;
+
+	if (grub_file_read (file, &lh, sizeof (lh)) != sizeof (lh))
 	  break;
-	/* Raspberry pi.  */
-	if (sig_pi == grub_cpu_to_le32_compile_time (0xea000006))
+	/* Short forward branch in A32 state (for Raspberry pi kernels). */
+	if (lh.code0 == grub_cpu_to_le32_compile_time (0xea000006))
 	  {
 	    ret = 1;
 	    break;
 	  }
 
-	if (grub_file_seek (file, 0x24) == (grub_size_t) -1)
-	  break;
-	if (grub_file_read (file, &sig, 4) != 4)
-	  break;
-	if (sig == grub_cpu_to_le32_compile_time (0x016f2818))
+	if (lh.magic ==
+	    grub_cpu_to_le32_compile_time (GRUB_LINUX_ARM_MAGIC_SIGNATURE))
 	  {
 	    ret = 1;
 	    break;
@@ -406,13 +411,13 @@ grub_cmd_file (grub_extcmd_context_t ctxt, int argc, char **args)
       }
     case IS_ARM64_LINUX:
       {
-	grub_uint32_t sig;
+	struct linux_arm64_kernel_header lh;
 
-	if (grub_file_seek (file, 0x38) == (grub_size_t) -1)
+	if (grub_file_read (file, &lh, sizeof (lh)) != sizeof (lh))
 	  break;
-	if (grub_file_read (file, &sig, 4) != 4)
-	  break;
-	if (sig == grub_cpu_to_le32_compile_time (0x644d5241))
+
+	if (lh.magic ==
+	    grub_cpu_to_le32_compile_time (GRUB_LINUX_ARM64_MAGIC_SIGNATURE))
 	  {
 	    ret = 1;
 	    break;
@@ -546,7 +551,8 @@ grub_cmd_file (grub_extcmd_context_t ctxt, int argc, char **args)
     case IS_XNU64:
     case IS_XNU32:
       {
-	macho = grub_macho_open (args[0], (type == IS_XNU64));
+	macho = grub_macho_open (args[0], GRUB_FILE_TYPE_XNU_KERNEL,
+				 (type == IS_XNU64));
 	if (!macho)
 	  break;
 	/* FIXME: more checks?  */
@@ -570,6 +576,7 @@ grub_cmd_file (grub_extcmd_context_t ctxt, int argc, char **args)
     case IS_IA_EFI:
     case IS_ARM64_EFI:
     case IS_ARM_EFI:
+    case IS_RISCV_EFI:
       {
 	char signature[4];
 	grub_uint32_t pe_offset;
@@ -615,7 +622,13 @@ grub_cmd_file (grub_extcmd_context_t ctxt, int argc, char **args)
 	    && coff_head.machine !=
 	    grub_cpu_to_le16_compile_time (GRUB_PE32_MACHINE_ARMTHUMB_MIXED))
 	  break;
-	if (type == IS_IA_EFI || type == IS_64_EFI || type == IS_ARM64_EFI)
+	if (type == IS_RISCV_EFI
+	    && coff_head.machine !=
+	    grub_cpu_to_le16_compile_time (GRUB_PE32_MACHINE_RISCV64))
+          /* TODO: Determine bitness dynamically */
+	  break;
+	if (type == IS_IA_EFI || type == IS_64_EFI || type == IS_ARM64_EFI ||
+	    type == IS_RISCV_EFI)
 	  {
 	    struct grub_pe64_optional_header o64;
 	    if (grub_file_read (file, &o64, sizeof (o64)) != sizeof (o64))

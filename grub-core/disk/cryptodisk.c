@@ -1008,7 +1008,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
       if (state[0].set) /* Cannot use UUID lookup with detached header */
         return GRUB_ERR_BAD_ARGUMENT;
 
-      hdr = grub_file_open (state[3].arg);
+      hdr = grub_file_open (state[3].arg, GRUB_FILE_TYPE_NONE);
       if (!hdr)
         return grub_errno;
     }
@@ -1037,7 +1037,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
             {
               keyfile_size = requested_keyfile_size ? requested_keyfile_size : \
                                                  GRUB_CRYPTODISK_MAX_KEYFILE_SIZE;
-              keyfile = grub_file_open (state[4].arg);
+              keyfile = grub_file_open (state[4].arg, GRUB_FILE_TYPE_NONE);
               if (!keyfile)
                 grub_printf (N_("Unable to open key file %s\n"), state[4].arg);
               else if (grub_file_seek (keyfile, keyfile_offset) == (grub_off_t)-1)
@@ -1241,13 +1241,13 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 static struct grub_disk_dev grub_cryptodisk_dev = {
   .name = "cryptodisk",
   .id = GRUB_DISK_DEVICE_CRYPTODISK_ID,
-  .iterate = grub_cryptodisk_iterate,
-  .open = grub_cryptodisk_open,
-  .close = grub_cryptodisk_close,
-  .read = grub_cryptodisk_read,
-  .write = grub_cryptodisk_write,
+  .disk_iterate = grub_cryptodisk_iterate,
+  .disk_open = grub_cryptodisk_open,
+  .disk_close = grub_cryptodisk_close,
+  .disk_read = grub_cryptodisk_read,
+  .disk_write = grub_cryptodisk_write,
 #ifdef GRUB_UTIL
-  .memberlist = grub_cryptodisk_memberlist,
+  .disk_memberlist = grub_cryptodisk_memberlist,
 #endif
   .next = 0
 };

@@ -292,6 +292,11 @@ struct grub_net_network_level_interface
   struct grub_net_bootp_packet *dhcp_ack;
   grub_size_t dhcp_acklen;
   grub_uint16_t vlantag;
+  grub_uint32_t xid;      /* DHCPv4 transaction id */
+  grub_uint32_t srv_id;   /* DHCPv4 server_identifier */
+  grub_uint32_t my_ip;    /* DHCPv4 offered IP address */
+  unsigned dhcp_tmo_left; /* DHCPv4 running retransmission timeout */
+  unsigned dhcp_tmo;      /* DHCPv4 current retransmission timeout */
   void *data;
 };
 
@@ -457,6 +462,13 @@ enum
     GRUB_NET_BOOTP_DOMAIN = 0x0f,
     GRUB_NET_BOOTP_ROOT_PATH = 0x11,
     GRUB_NET_BOOTP_EXTENSIONS_PATH = 0x12,
+    GRUB_NET_DHCP_REQUESTED_IP_ADDRESS = 50,
+    GRUB_NET_DHCP_OVERLOAD = 52,
+    GRUB_NET_DHCP_MESSAGE_TYPE = 53,
+    GRUB_NET_DHCP_SERVER_IDENTIFIER = 54,
+    GRUB_NET_DHCP_PARAMETER_REQUEST_LIST = 55,
+    GRUB_NET_DHCP_TFTP_SERVER_NAME = 66,
+    GRUB_NET_DHCP_BOOTFILE_NAME = 67,
     GRUB_NET_BOOTP_END = 0xff
   };
 
@@ -474,7 +486,7 @@ grub_net_add_ipv4_local (struct grub_net_network_level_interface *inf,
 
 void
 grub_net_process_dhcp (struct grub_net_buff *nb,
-		       struct grub_net_card *card);
+		       struct grub_net_network_level_interface *iface);
 
 int
 grub_net_hwaddr_cmp (const grub_net_link_level_address_t *a,

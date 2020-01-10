@@ -20,6 +20,7 @@
 #define GRUB_EFI_PE32_HEADER	1
 
 #include <grub/types.h>
+#include <grub/efi/memory.h>
 
 /* The MSDOS compatibility stub. This was copied from the output of
    objcopy, and it is not necessary to care about what this means.  */
@@ -50,8 +51,14 @@
 /* According to the spec, the minimal alignment is 512 bytes...
    But some examples (such as EFI drivers in the Intel
    Sample Implementation) use 32 bytes (0x20) instead, and it seems
-   to be working. For now, GRUB uses 512 bytes for safety.  */
-#define GRUB_PE32_SECTION_ALIGNMENT	0x200
+   to be working.
+
+   However, there is firmware showing up in the field now with
+   page alignment constraints to guarantee that page protection
+   bits take effect. Because currently existing GRUB code can not
+   properly distinguish between in-memory and in-file layout, let's
+   bump all alignment to GRUB_EFI_PAGE_SIZE. */
+#define GRUB_PE32_SECTION_ALIGNMENT	GRUB_EFI_PAGE_SIZE
 #define GRUB_PE32_FILE_ALIGNMENT	GRUB_PE32_SECTION_ALIGNMENT
 
 struct grub_pe32_coff_header
@@ -70,6 +77,8 @@ struct grub_pe32_coff_header
 #define GRUB_PE32_MACHINE_X86_64		0x8664
 #define GRUB_PE32_MACHINE_ARMTHUMB_MIXED	0x01c2
 #define GRUB_PE32_MACHINE_ARM64			0xAA64
+#define GRUB_PE32_MACHINE_RISCV32		0x5032
+#define GRUB_PE32_MACHINE_RISCV64		0x5064
 
 #define GRUB_PE32_RELOCS_STRIPPED		0x0001
 #define GRUB_PE32_EXECUTABLE_IMAGE		0x0002
@@ -281,9 +290,12 @@ struct grub_pe32_fixup_block
 #define GRUB_PE32_REL_BASED_HIGHADJ	4
 #define GRUB_PE32_REL_BASED_MIPS_JMPADDR 5
 #define GRUB_PE32_REL_BASED_ARM_MOV32A  5
+#define GRUB_PE32_REL_BASED_RISCV_HI20	5
 #define GRUB_PE32_REL_BASED_SECTION	6
 #define GRUB_PE32_REL_BASED_REL		7
 #define GRUB_PE32_REL_BASED_ARM_MOV32T  7
+#define GRUB_PE32_REL_BASED_RISCV_LOW12I 7
+#define GRUB_PE32_REL_BASED_RISCV_LOW12S 8
 #define GRUB_PE32_REL_BASED_IA64_IMM64	9
 #define GRUB_PE32_REL_BASED_DIR64	10
 #define GRUB_PE32_REL_BASED_HIGH3ADJ	11

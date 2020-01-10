@@ -190,7 +190,7 @@ fuse_getattr (const char *path, struct stat *st)
     }
 
   /* It's the whole device. */
-  (fs->dir) (dev, path2, fuse_getattr_find_file, &ctx);
+  (fs->fs_dir) (dev, path2, fuse_getattr_find_file, &ctx);
 
   grub_free (path2);
   if (!ctx.file_exists)
@@ -208,7 +208,7 @@ fuse_getattr (const char *path, struct stat *st)
   if (!ctx.file_info.dir)
     {
       grub_file_t file;
-      file = grub_file_open (path);
+      file = grub_file_open (path, GRUB_FILE_TYPE_GET_SIZE);
       if (! file && grub_errno == GRUB_ERR_BAD_FILE_TYPE)
 	{
 	  grub_errno = GRUB_ERR_NONE;
@@ -244,7 +244,7 @@ static int
 fuse_open (const char *path, struct fuse_file_info *fi __attribute__ ((unused)))
 {
   grub_file_t file;
-  file = grub_file_open (path);
+  file = grub_file_open (path, GRUB_FILE_TYPE_MOUNT);
   if (! file)
     return translate_error ();
   files[first_fd++] = file;
@@ -308,7 +308,7 @@ fuse_readdir_call_fill (const char *filename,
       grub_file_t file;
       char *tmp;
       tmp = xasprintf ("%s/%s", ctx->path, filename);
-      file = grub_file_open (tmp);
+      file = grub_file_open (tmp, GRUB_FILE_TYPE_GET_SIZE);
       free (tmp);
       /* Symlink to directory.  */
       if (! file && grub_errno == GRUB_ERR_BAD_FILE_TYPE)
@@ -352,7 +352,7 @@ fuse_readdir (const char *path, void *buf,
 	 && pathname[grub_strlen (pathname) - 1] == '/')
     pathname[grub_strlen (pathname) - 1] = 0;
 
-  (fs->dir) (dev, pathname, fuse_readdir_call_fill, &ctx);
+  (fs->fs_dir) (dev, pathname, fuse_readdir_call_fill, &ctx);
   free (pathname);
   grub_errno = GRUB_ERR_NONE;
   return 0;

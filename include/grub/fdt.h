@@ -22,6 +22,9 @@
 #include <grub/types.h>
 #include <grub/symbol.h>
 
+/* Space required when preparing the /chosen node after boot has been called. */
+#define GRUB_EFI_LINUX_FDT_EXTRA_SPACE 0x400
+
 #define FDT_MAGIC 0xD00DFEED
 
 typedef struct {
@@ -49,6 +52,11 @@ struct grub_fdt_empty_tree {
 };
 
 #define GRUB_FDT_EMPTY_TREE_SZ  sizeof (struct grub_fdt_empty_tree)
+
+/* Size needed by a property entry: 1 token (FDT_PROPERTY), plus len and nameoff
+   fields, plus the property value, plus padding if needed. */
+#define grub_fdt_prop_entry_size(prop_len)						\
+  (3 * sizeof(grub_uint32_t) + ALIGN_UP(prop_len, sizeof(grub_uint32_t)))
 
 #define grub_fdt_get_header(fdt, field)	\
 	grub_be_to_cpu32(((const grub_fdt_header_t *)(fdt))->field)

@@ -66,6 +66,7 @@ get_uuid (const char *name, char **uuid, int getnative)
       /* Firmware disks.  */
     case GRUB_DISK_DEVICE_BIOSDISK_ID:
     case GRUB_DISK_DEVICE_OFDISK_ID:
+    case GRUB_DISK_DEVICE_OBDISK_ID:
     case GRUB_DISK_DEVICE_EFIDISK_ID:
     case GRUB_DISK_DEVICE_NAND_ID:
     case GRUB_DISK_DEVICE_ARCDISK_ID:
@@ -108,7 +109,7 @@ get_uuid (const char *name, char **uuid, int getnative)
       grub_device_close (dev);
       return grub_errno;
     }
-  if (!fs->uuid || fs->uuid (dev, uuid) || !*uuid)
+  if (!fs->fs_uuid || fs->fs_uuid (dev, uuid) || !*uuid)
     {
       grub_device_close (dev);
 
@@ -242,7 +243,8 @@ grub_cmd_nativedisk (grub_command_t cmd __attribute__ ((unused)),
       if (! filename)
 	goto fail;
 
-      file = grub_file_open (filename);
+      file = grub_file_open (filename,
+			     GRUB_FILE_TYPE_GRUB_MODULE);
       grub_free (filename);
       if (! file)
 	goto fail;

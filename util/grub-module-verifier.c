@@ -29,6 +29,7 @@ struct grub_module_verifier_arch archs[] = {
       GRUB_ELF_R_PPC_ADDR16_HA,
       GRUB_ELF_R_PPC_ADDR32,
       GRUB_ELF_R_PPC_REL32,
+      GRUB_ELF_R_PPC_PLTREL24,
       -1
     } },
   { "sparc64", 8, 1, EM_SPARCV9, GRUB_MODULE_VERIFY_SUPPORTS_RELA, (int[]){
@@ -117,6 +118,62 @@ struct grub_module_verifier_arch archs[] = {
       R_AARCH64_LDST64_ABS_LO12_NC,
       R_AARCH64_PREL32,
       -1
+    } },
+  { "riscv32", 4, 0, EM_RISCV, GRUB_MODULE_VERIFY_SUPPORTS_REL | GRUB_MODULE_VERIFY_SUPPORTS_RELA, (int[]){
+      R_RISCV_32,
+      R_RISCV_64,
+      R_RISCV_ADD8,
+      R_RISCV_ADD16,
+      R_RISCV_ADD32,
+      R_RISCV_ADD64,
+      R_RISCV_SUB8,
+      R_RISCV_SUB16,
+      R_RISCV_SUB32,
+      R_RISCV_SUB64,
+      R_RISCV_ALIGN,
+      R_RISCV_BRANCH,
+      R_RISCV_CALL,
+      R_RISCV_CALL_PLT,
+      R_RISCV_GOT_HI20,
+      R_RISCV_HI20,
+      R_RISCV_JAL,
+      R_RISCV_LO12_I,
+      R_RISCV_LO12_S,
+      R_RISCV_PCREL_HI20,
+      R_RISCV_PCREL_LO12_I,
+      R_RISCV_PCREL_LO12_S,
+      R_RISCV_RELAX,
+      R_RISCV_RVC_BRANCH,
+      R_RISCV_RVC_JUMP,
+      -1
+    } },
+  { "riscv64", 8, 0, EM_RISCV, GRUB_MODULE_VERIFY_SUPPORTS_REL | GRUB_MODULE_VERIFY_SUPPORTS_RELA, (int[]){
+      R_RISCV_32,
+      R_RISCV_64,
+      R_RISCV_ADD8,
+      R_RISCV_ADD16,
+      R_RISCV_ADD32,
+      R_RISCV_ADD64,
+      R_RISCV_SUB8,
+      R_RISCV_SUB16,
+      R_RISCV_SUB32,
+      R_RISCV_SUB64,
+      R_RISCV_ALIGN,
+      R_RISCV_BRANCH,
+      R_RISCV_CALL,
+      R_RISCV_CALL_PLT,
+      R_RISCV_GOT_HI20,
+      R_RISCV_HI20,
+      R_RISCV_JAL,
+      R_RISCV_LO12_I,
+      R_RISCV_LO12_S,
+      R_RISCV_PCREL_HI20,
+      R_RISCV_PCREL_LO12_I,
+      R_RISCV_PCREL_LO12_S,
+      R_RISCV_RELAX,
+      R_RISCV_RVC_BRANCH,
+      R_RISCV_RVC_JUMP,
+      -1
     }
   },
 };
@@ -129,6 +186,7 @@ struct platform_whitelist {
 
 static struct platform_whitelist whitelists[] = {
   {"i386", "xen", (const char *[]) {"all_video", 0}},
+  {"i386", "xen_pvh", (const char *[]) {"all_video", 0}},
   {"x86_64", "xen", (const char *[]) {"all_video", 0}},
   {"sparc64", "ieee1275", (const char *[]) {"all_video", 0}},
 
@@ -157,7 +215,7 @@ main (int argc, char **argv)
     if (strcmp(archs[arch].name, argv[2]) == 0)
       break;
   if (arch == ARRAY_SIZE(archs))
-    grub_util_error("unknown arch: %s", argv[2]);
+    grub_util_error("%s: unknown arch: %s", argv[1], argv[2]);
 
   for (whitelist = 0; whitelist < ARRAY_SIZE(whitelists); whitelist++)
     if (strcmp(whitelists[whitelist].arch, argv[2]) == 0
@@ -169,8 +227,8 @@ main (int argc, char **argv)
   module_size = grub_util_get_image_size (argv[1]);
   module_img = grub_util_read_image (argv[1]);
   if (archs[arch].voidp_sizeof == 8)
-    grub_module_verify64(module_img, module_size, &archs[arch], whitelist_empty);
+    grub_module_verify64(argv[1], module_img, module_size, &archs[arch], whitelist_empty);
   else
-    grub_module_verify32(module_img, module_size, &archs[arch], whitelist_empty);
+    grub_module_verify32(argv[1], module_img, module_size, &archs[arch], whitelist_empty);
   return 0;
 }
