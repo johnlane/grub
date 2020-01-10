@@ -1008,7 +1008,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
       if (state[0].set) /* Cannot use UUID lookup with detached header */
         return GRUB_ERR_BAD_ARGUMENT;
 
-      hdr = grub_file_open (state[3].arg);
+      hdr = grub_file_open (state[3].arg, GRUB_FILE_TYPE_NONE);
       if (!hdr)
         return grub_errno;
     }
@@ -1037,7 +1037,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
             {
               keyfile_size = requested_keyfile_size ? requested_keyfile_size : \
                                                  GRUB_CRYPTODISK_MAX_KEYFILE_SIZE;
-              keyfile = grub_file_open (state[4].arg);
+              keyfile = grub_file_open (state[4].arg, GRUB_FILE_TYPE_NONE);
               if (!keyfile)
                 grub_printf (N_("Unable to open key file %s\n"), state[4].arg);
               else if (grub_file_seek (keyfile, keyfile_offset) == (grub_off_t)-1)
