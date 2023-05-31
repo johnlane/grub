@@ -2,6 +2,28 @@ The Grub `cryptomount` command can mount [LUKS][1] volumes. This extension augme
 with support for detached headers and key files as well as adding support for plain [DMCrypt][2]
 volumes.
 
+
+<style>
+.deprecation {
+    border-color: Maroon;
+    background-color: PaleGoldenRod;
+    border-top-right-radius: 2em;
+    border-bottom-right-radius: 2em;
+}
+</style>
+
+> **Deprecation Notice**
+>
+>  Grub gained detached header support on 8th June 2022 with commit [1deb5214](https://gitlab.com/gnu-grub/grub/-/commit/1deb521452b288fe8256dcc7bc14228aa42b568e).
+>
+>  As of this notice the current Grub version 2.06 predates this change, however the [Arch Linux Grub package](https://archlinux.org/packages/core/x86_64/grub) is based of the master branch and therefore includes this support. Other distributionss may have to wait for the next Grub release.
+>
+>  Thanks to contributors here and on the mailing lists who have helped get this functionality supported upstream. Please direct any further queries to a [Grub mailing list](https://www.gnu.org/software/grub/grub-mailinglist.html).
+>
+{: .deprecation}
+
+
+
 This makes it possible to boot from [LUKS][1] and [DMCrypt][2] volumes. The LUKS header may
 be detached and stored on a separate device such as a removable USB key. Key files may be
 stored in a similar way and used instead of interactive passphrase entry.
